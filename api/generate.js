@@ -1,14 +1,10 @@
-import express from "express";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import Groq from "groq-sdk";
 
-const router = express.Router();
-
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
-
 
 
 /* --------------------------------------------------
@@ -42,8 +38,7 @@ async function scrapeIntro(url) {
     const response = await axios.get(url, {
       timeout: 6000,
       headers: {
-        "User-Agent":
-          "HotSeatPHI/1.0 Academic Teaching Tool",
+        "User-Agent": "HotSeatPHI/1.0 Academic Teaching Tool",
       },
     });
 
@@ -160,7 +155,6 @@ Answer Key: A/B/C/D
     model: "llama3-70b-8192",
     temperature: 0.2,
     max_tokens: 200,
-
     messages: [
       {
         role: "user",
@@ -192,99 +186,95 @@ Answer Key: A`;
 
 
 /* --------------------------------------------------
-GENERATE QUESTION ENDPOINT
+VERCEL SERVERLESS HANDLER
 -------------------------------------------------- */
 
-router.post("/generate", async (req, res) => {
+export default async function handler(req, res) {
 
-  try {
+  const { url, method } = req;
 
-    const { topic } = req.body;
+  /* --------------------------------------------------
+  GENERATE QUESTION
+  -------------------------------------------------- */
 
-    if (!topic) {
-      return res.status(400).json({
-        error: "Topic required",
-      });
-    }
-
-    /* 1️⃣ RANDOM CONTEXT */
-
-    const context = await getRandomContext();
-
-    /* 2️⃣ KEYWORDS */
-
-    const { anchor, keywords } = extractKeywords(context.text);
-
-    const keyword = keywords.length ? keywords[0] : topic;
-
-    /* 3️⃣ GENERATE QUESTION */
-
-    let question;
+  if (method === "POST" && url.includes("/generate")) {
 
     try {
 
-      question = await generateQuestion(topic, anchor, keyword);
+      const { topic } = req.body;
+
+      if (!topic) {
+        return res.status(400).json({
+          error: "Topic required",
+        });
+      }
+
+      const context = await getRandomContext();
+
+      const { anchor, keywords } = extractKeywords(context.text);
+
+      const keyword = keywords.length ? keywords[0] : topic;
+
+      let question;
+
+      try {
+        question = await generateQuestion(topic, anchor, keyword);
+      } catch {
+        question = fallbackQuestion(topic, keyword);
+      }
+
+      return res.json({
+        question,
+        source: context.site,
+        url: context.url,
+      });
 
     } catch {
 
-      question = fallbackQuestion(topic, keyword);
+      return res.status(500).json({
+        error: "Generation failed",
+      });
 
     }
-
-    /* 4️⃣ RESPONSE */
-
-    res.json({
-      question,
-      source: context.site,
-      url: context.url,
-    });
-
-  } catch (err) {
-
-    res.status(500).json({
-      error: "Generation failed",
-    });
-
   }
 
-});
 
+  /* --------------------------------------------------
+  EMAIL CAPTURE
+  -------------------------------------------------- */
 
+  if (method === "POST" && url.includes("/capture-email")) {
 
-/* --------------------------------------------------
-EMAIL CAPTURE ENDPOINT
--------------------------------------------------- */
+    try {
 
-router.post("/capture-email", async (req, res) => {
+      const { email, question } = req.body;
 
-  try {
+      console.log({
+        email,
+        question,
+        time: new Date().toISOString()
+      });
 
-    const { email, question } = req.body;
+      return res.json({
+        success: true
+      });
 
-    console.log({
-      email,
-      question,
-      time: new Date().toISOString()
-    });
+    } catch {
 
-    res.json({
-      success: true
-    });
+      return res.status(500).json({
+        error: "Email capture failed"
+      });
 
-  } catch (err) {
-
-    res.status(500).json({
-      error: "Email capture failed"
-    });
-
+    }
   }
 
-});
 
+  /* --------------------------------------------------
+  METHOD NOT ALLOWED
+  -------------------------------------------------- */
 
+  return res.status(405).json({
+    error: "Method Not Allowed"
+  });
 
-/* --------------------------------------------------
-EXPORT ROUTER
--------------------------------------------------- */
-
-export default router;
+}
