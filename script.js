@@ -108,7 +108,7 @@ async function generateQuiz(topic) {
 
     try {
 
-        const response = await fetch("/generate", {
+        const response = await fetch("https://literary-theory.vercel.app/api/generate", {
 
             method: "POST",
 
@@ -191,7 +191,7 @@ document.getElementById("submitEmail").addEventListener("click", async () => {
 
     try {
 
-        await fetch("/capture-email", {
+        await fetch("https://literary-theory.vercel.app/api/capture-email", {
 
             method: "POST",
 
@@ -213,6 +213,8 @@ document.getElementById("submitEmail").addEventListener("click", async () => {
     }
 
     localStorage.setItem("hotseat_email", email);
+
+    userEmail = email;
 
     downloadQuestion(question);
 
