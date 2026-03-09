@@ -1,13 +1,11 @@
 {
-  "name": "hot_seat_backend",
+  "name": "literary-theory",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+  "description": "Literary Theory Hot Seat Generator",
+  "type": "module",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0",
+    "groq-sdk": "^0.5.0"
+  }
 }
