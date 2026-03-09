@@ -1,0 +1,576 @@
+/* BACKGROUND */
+
+body{
+margin:0;
+font-family: 'Montserrat', 'Poppins', sans-serif;
+
+background-color:#e5e5f7;
+opacity:0.95;
+
+background-image: radial-gradient(#444cf7 0.5px, #e5e5f7 0.5px);
+background-size:10px 10px;
+
+cursor:crosshair;
+}
+
+
+
+/* HEADER */
+
+.header{
+
+position:sticky;
+top:0;
+
+display:flex;
+justify-content:space-between;
+align-items:center;
+
+padding:15px 40px;
+
+background:white;
+
+border-bottom:3px solid #00356b;
+
+z-index:1000;
+
+}
+
+.phi-logo{
+height:40px;
+}
+
+.header-left{
+display:flex;
+align-items:center;
+gap:18px;
+}
+
+.app-title{
+
+font-size:18px;
+font-weight:700;
+
+color:#00356b;
+
+padding-left:18px;
+
+border-left:3px solid #87ceeb;
+
+letter-spacing:0.4px;
+
+}
+
+
+/* MENU */
+
+.menu a{
+
+margin-left:25px;
+
+text-decoration:none;
+
+font-weight:600;
+
+color:#00356b;
+
+padding:8px 10px;
+
+transition:all 0.25s ease;
+
+border-radius:4px;
+
+}
+
+.menu a:hover{
+
+background:#87ceeb;
+
+color:#001f3f;
+
+transform:translateY(-2px);
+
+}
+
+
+
+/* MAIN SECTION */
+
+.main{
+
+min-height:90vh;
+
+display:grid;
+
+grid-template-columns:0.9fr 1.6fr;
+
+gap:40px;
+
+padding:40px;
+
+}
+
+
+
+/* CARDS */
+
+.card{
+
+background:white;
+
+padding:40px;
+
+border:4px solid #00356b;
+
+border-radius:0;
+
+transition:all 0.3s ease;
+
+box-shadow:8px 8px 0px #87ceeb;
+
+}
+
+.card:hover{
+
+transform:translateY(-6px) scale(1.01);
+
+box-shadow:12px 12px 0px #87ceeb;
+
+}
+
+
+
+/* BOOK CARD */
+
+.book-card{
+overflow:visible;
+}
+
+
+
+/* BOOK WRAPPER */
+
+.book-wrapper{
+
+position:relative;
+
+display:flex;
+
+justify-content:center;
+
+margin-bottom:20px;
+
+}
+
+
+
+/* BOOK IMAGE */
+
+.book{
+
+width:220px;
+
+display:block;
+
+margin:auto;
+
+transition:transform 0.3s;
+
+}
+
+.book:hover{
+
+transform:rotate(-2deg) scale(1.05);
+
+}
+
+
+
+/* BOOK TEXT */
+
+.subtitle{
+color:#555;
+}
+
+.book-desc{
+
+margin-top:15px;
+
+line-height:1.5;
+
+}
+
+
+
+/* THOUGHT BUBBLE */
+
+.thought-bubble{
+
+position:absolute;
+
+top:-18px;
+right:-35px;
+
+background:white;
+
+border:3px solid #00356b;
+
+padding:12px;
+
+width:200px;
+
+font-size:13px;
+
+box-shadow:6px 6px 0px #87ceeb;
+
+z-index:5;
+
+transition:transform 0.25s ease;
+
+}
+
+
+
+/* BUBBLE TAIL */
+
+.thought-bubble::after{
+
+content:"";
+
+position:absolute;
+
+bottom:-10px;
+left:25px;
+
+width:12px;
+height:12px;
+
+background:white;
+
+border-right:3px solid #00356b;
+border-bottom:3px solid #00356b;
+
+transform:rotate(45deg);
+
+}
+
+
+
+/* HOVER ANIMATION */
+
+.book-wrapper:hover .thought-bubble{
+
+transform:rotate(-2deg) translateY(-4px);
+
+}
+
+
+
+/* ADOPTION BOX */
+
+.adoption{
+
+margin-top:15px;
+
+background:#e8f4ff;
+
+padding:12px;
+
+border-left:4px solid #00356b;
+
+}
+
+
+
+/* APP AREA */
+
+textarea{
+
+width:100%;
+
+height:90px;
+
+padding:10px;
+
+border:2px solid #00356b;
+
+margin-bottom:15px;
+
+font-size:15px;
+
+transition:all 0.2s;
+
+}
+
+textarea:focus{
+
+outline:none;
+
+border-color:#87ceeb;
+
+transform:scale(1.02);
+
+}
+
+
+
+button{
+
+width:100%;
+
+padding:14px;
+
+background:#00356b;
+
+color:white;
+
+border:none;
+
+font-size:16px;
+
+font-weight:bold;
+
+cursor:pointer;
+
+transition:all 0.25s;
+
+}
+
+button:hover{
+
+background:#87ceeb;
+
+color:#001f3f;
+
+transform:scale(1.03);
+
+}
+
+
+
+pre{
+
+margin-top:20px;
+
+background:#f4f6ff;
+
+padding:20px;
+
+height:400px;
+
+overflow:auto;
+
+border:2px solid #00356b;
+
+}
+
+/* DOWNLOAD SECTION */
+
+.download-section{
+
+grid-column:1 / -1;   /* span across both columns */
+
+padding:40px;
+
+display:flex;
+justify-content:center;
+
+}
+
+
+
+/* DOWNLOAD CARD */
+
+.download-card{
+
+position:relative;
+
+width:100%;
+max-width:100%;
+
+text-align:center;
+
+border:4px solid #00356b;
+
+box-shadow:8px 8px 0px #87ceeb;
+
+}
+
+
+
+/* TITLE */
+
+.download-title{
+
+margin-top:0;
+
+font-size:22px;
+
+color:#00356b;
+
+}
+
+
+
+/* TEXT */
+
+.download-text{
+
+margin-bottom:20px;
+
+line-height:1.6;
+
+color:#444;
+
+}
+
+
+
+/* FORM LAYOUT */
+
+.download-form{
+
+display:flex;
+
+gap:15px;
+
+justify-content:center;
+
+}
+
+
+
+/* INPUT */
+
+.download-form input{
+
+flex:1;
+
+padding:12px;
+
+border:2px solid #00356b;
+
+font-size:15px;
+
+transition:all 0.25s;
+
+}
+
+
+
+.download-form input:focus{
+
+outline:none;
+
+border-color:#87ceeb;
+
+transform:scale(1.02);
+
+}
+
+
+
+/* CARD HOVER EFFECT */
+
+.download-card:hover{
+
+transform:translateY(-6px);
+
+box-shadow:12px 12px 0px #87ceeb;
+
+}
+
+
+
+/* BADGE LABEL */
+
+.download-card::before{
+
+content:"FREE RESOURCE";
+
+position:absolute;
+
+top:-14px;
+left:20px;
+
+background:#87ceeb;
+
+padding:4px 10px;
+
+font-size:12px;
+
+font-weight:700;
+
+color:#001f3f;
+
+border:2px solid #00356b;
+
+}
+
+
+/* FOOTER */
+
+.footer{
+
+background:#001f3f;
+
+color:white;
+
+padding:60px 40px;
+
+margin-top:60px;
+
+}
+
+.footer-grid{
+
+display:grid;
+
+grid-template-columns:1fr 1fr;
+
+gap:40px;
+
+max-width:1000px;
+
+margin:auto;
+
+}
+
+.footer a{
+
+color:#87ceeb;
+
+text-decoration:none;
+
+}
+
+.footer a:hover{
+
+text-decoration:underline;
+
+}
+
+
+
+/* CONTACT FORM */
+
+.contact input,
+.contact textarea{
+
+width:100%;
+
+padding:10px;
+
+margin-bottom:10px;
+
+border:none;
+
+}
+
+.contact button{
+
+background:#87ceeb;
+
+color:#001f3f;
+
+}
