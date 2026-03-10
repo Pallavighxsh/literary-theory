@@ -1,63 +1,89 @@
+document.addEventListener("DOMContentLoaded", () => {
+
 console.log("Quiz script loaded");
 
 let userEmail = null;
-
-const MAX_ATTEMPTS = 5;
 
 const seenIds = [];
 
 const generateBtn = document.getElementById("generateBtn");
 const output = document.getElementById("output");
+const startBtn = document.getElementById("startBtn");
 
-/* -------------------------------
+/* -------------------------
 START SESSION
---------------------------------*/
+------------------------- */
 
-document.getElementById("startBtn").addEventListener("click",()=>{
+if(startBtn){
 
-const email = document.getElementById("email").value.trim();
+startBtn.addEventListener("click",()=>{
+
+const emailField = document.getElementById("email");
+
+if(!emailField) return;
+
+const email = emailField.value.trim();
 
 if(!email){
-alert("Enter email");
+alert("Please enter your email");
 return;
 }
 
 userEmail = email;
 
-document.getElementById("signup-section").classList.add("hidden");
-document.getElementById("quiz-section").classList.remove("hidden");
+const signup = document.getElementById("signup-section");
+const quiz = document.getElementById("quiz-section");
+
+if(signup) signup.classList.add("hidden");
+if(quiz) quiz.classList.remove("hidden");
+
+renderHistory();
 
 });
 
-/* -------------------------------
+}
+
+/* -------------------------
 GENERATE QUIZ
---------------------------------*/
+------------------------- */
+
+if(generateBtn){
 
 generateBtn.addEventListener("click",async()=>{
 
-const topic = document.getElementById("topic").value.trim();
+const topicField = document.getElementById("topic");
+
+if(!topicField) return;
+
+const topic = topicField.value.trim();
 
 if(!topic){
 alert("Enter topic");
 return;
 }
 
-output.innerText = "Generating...";
+if(!output) return;
+
+output.innerText = "Generating question...";
 
 try{
 
-const res = await fetch("/api/generate",{
+const response = await fetch("/api/generate",{
 
 method:"POST",
-headers:{ "Content-Type":"application/json" },
+
+headers:{
+"Content-Type":"application/json"
+},
+
 body:JSON.stringify({
-topic,
+topic:topic,
 seen:seenIds
 })
 
 });
 
-const data = await res.json();
+const data = await response.json();
 
 if(data.complete){
 
@@ -75,30 +101,32 @@ saveQuestion(data.question);
 
 }catch(err){
 
-output.innerText = "Generation failed.";
+console.error(err);
+
+output.innerText = "⚠️ Generation failed.";
 
 }
 
 });
 
-/* -------------------------------
+}
+
+/* -------------------------
 DISPLAY QUESTION
---------------------------------*/
+------------------------- */
 
 function displayQuestion(text){
 
 const parts = text.split("Answer Key:");
 
 const question = parts[0];
-const answer = parts[1];
+const answer = parts[1] ? parts[1].trim() : "";
 
 output.innerHTML = `
 
 <pre>${question}</pre>
 
-<button id="revealBtn">
-Reveal Answer
-</button>
+<button id="revealBtn">Reveal Answer</button>
 
 <div id="answer" class="hidden">
 Answer Key: ${answer}
@@ -106,19 +134,29 @@ Answer Key: ${answer}
 
 `;
 
-document.getElementById("revealBtn").onclick=()=>{
+const revealBtn = document.getElementById("revealBtn");
 
-document.getElementById("answer").classList.remove("hidden");
+if(revealBtn){
+
+revealBtn.onclick = ()=>{
+
+const ans = document.getElementById("answer");
+
+if(ans) ans.classList.remove("hidden");
 
 };
 
 }
 
-/* -------------------------------
+}
+
+/* -------------------------
 QUESTION HISTORY
---------------------------------*/
+------------------------- */
 
 function saveQuestion(q){
+
+if(!userEmail) return;
 
 const key = `history_${userEmail}`;
 
@@ -133,6 +171,8 @@ renderHistory();
 }
 
 function renderHistory(){
+
+if(!userEmail) return;
 
 const container = document.getElementById("questionHistory");
 
@@ -158,28 +198,50 @@ container.appendChild(div);
 
 }
 
-/* -------------------------------
+/* -------------------------
 DOWNLOAD ALL
---------------------------------*/
+------------------------- */
 
-document.getElementById("downloadAllBtn").addEventListener("click",()=>{
+const downloadAllBtn = document.getElementById("downloadAllBtn");
+
+if(downloadAllBtn){
+
+downloadAllBtn.addEventListener("click",()=>{
+
+if(!userEmail) return;
 
 const key = `history_${userEmail}`;
 
 const history = JSON.parse(localStorage.getItem(key)) || [];
 
-const text = history.join("\n\n----------------\n\n");
+if(history.length===0){
+
+alert("No questions yet");
+
+return;
+
+}
+
+const text = history.join("\n\n-----------------\n\n");
 
 const blob = new Blob([text],{type:"text/plain"});
 
 const url = URL.createObjectURL(blob);
 
-const a=document.createElement("a");
+const a = document.createElement("a");
 
-a.href=url;
+a.href = url;
 
-a.download="literary_theory_questions.txt";
+a.download = "literary_theory_questions.txt";
+
+document.body.appendChild(a);
 
 a.click();
+
+document.body.removeChild(a);
+
+});
+
+}
 
 });
