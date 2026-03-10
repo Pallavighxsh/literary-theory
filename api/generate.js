@@ -1,374 +1,116 @@
-import axios from "axios";
-import * as cheerio from "cheerio";
-import Groq from "groq-sdk";
-
 /* --------------------------------
-GROQ CLIENT
--------------------------------- */
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-});
-
-/* --------------------------------
-CACHE STORE
--------------------------------- */
-
-const questionCache = {};
-const topicSessions = {};
-
-/* --------------------------------
-KNOWN TOPICS
--------------------------------- */
-
-const KNOWN_TOPICS = [
-"structuralism",
-"poststructuralism",
-"deconstruction",
-"formalism",
-"new criticism",
-"reader response theory",
-"hermeneutics",
-"semiotics",
-"narratology",
-"postmodernism",
-"modernism",
-"marxist criticism",
-"feminist theory",
-"psychoanalytic criticism",
-"archetypal criticism",
-"postcolonial theory",
-"new historicism",
-"cultural materialism",
-"ecocriticism",
-"queer theory",
-"critical theory"
-];
-
-/* --------------------------------
-CONTEXT SOURCES
+CONTEXT SOURCES (ARTICLE MODE)
 -------------------------------- */
 
 const CONTEXT_SOURCES = [
 
 {
 name:"stanford",
-search:(topic)=>`https://plato.stanford.edu/search/searcher.py?query=${encodeURIComponent(topic)}`
+base:"https://plato.stanford.edu",
+linkSelector:"a[href^='entries/']"
 },
 
 {
 name:"iep",
-search:(topic)=>`https://iep.utm.edu/?s=${encodeURIComponent(topic)}`
+base:"https://iep.utm.edu",
+linkSelector:"a[href^='https://iep.utm.edu/']"
 },
 
 {
 name:"britannica",
-search:(topic)=>`https://www.britannica.com/search?query=${encodeURIComponent(topic)}`
+base:"https://www.britannica.com",
+linkSelector:"a[href^='/topic/']"
 },
 
 {
 name:"wikipedia",
-search:(topic)=>`https://en.wikipedia.org/wiki/${encodeURIComponent(topic)}`
+base:"https://en.wikipedia.org/wiki/Philosophy",
+linkSelector:"a[href^='/wiki/']"
 }
 
 ];
 
-/* --------------------------------
-NORMALIZE TOPIC
--------------------------------- */
-
-function normalizeTopic(topic){
-
-  return topic
-    .toLowerCase()
-    .replace(/literary/g,"")
-    .replace(/theory/g,"")
-    .replace(/\s+/g," ")
-    .trim();
-
-}
 
 /* --------------------------------
-AUTOCORRECT
+FETCH RANDOM ARTICLE CONTEXT
 -------------------------------- */
 
-function autocorrectTopic(topic){
+async function fetchContext(){
 
-  for(const known of KNOWN_TOPICS){
-    if(topic.includes(known)){
-      return known;
-    }
-  }
-
-  return topic;
-
-}
-
-/* --------------------------------
-FETCH CONTEXT
--------------------------------- */
-
-async function fetchContext(topic){
-
-  let attempts = 0;
-
-  while(attempts < 4){
-
-    attempts++;
+  for(let attempt=0; attempt<6; attempt++){
 
     try{
 
-      const source = CONTEXT_SOURCES[
-        Math.floor(Math.random()*CONTEXT_SOURCES.length)
-      ];
+      const source =
+        CONTEXT_SOURCES[Math.floor(Math.random()*CONTEXT_SOURCES.length)];
 
-      const url = source.search(topic);
+      const startPage = source.base;
 
-      const response = await axios.get(url,{
+      const res = await axios.get(startPage,{
         timeout:8000,
         headers:{ "User-Agent":"Mozilla/5.0" }
       });
 
-      const $ = cheerio.load(response.data);
+      const $ = cheerio.load(res.data);
 
-      let text = "";
+      const links = [];
 
-      $("p").each((i,el)=>{
+      $(source.linkSelector).each((i,el)=>{
 
-        if(i < 10){
-          text += $(el).text()+" ";
+        const href = $(el).attr("href");
+
+        if(!href) return;
+
+        if(href.includes(":")) return;
+
+        const url = href.startsWith("http")
+          ? href
+          : source.base + href;
+
+        links.push(url);
+
+      });
+
+      if(!links.length) continue;
+
+      const randomLink =
+        links[Math.floor(Math.random()*links.length)];
+
+      const page = await axios.get(randomLink,{
+        timeout:8000,
+        headers:{ "User-Agent":"Mozilla/5.0" }
+      });
+
+      const $$ = cheerio.load(page.data);
+
+      let text="";
+
+      $$("p").each((i,el)=>{
+
+        if(i<20){
+          text += $$(el).text()+" ";
         }
 
       });
 
-      const wordCount = text.split(/\s+/).length;
+      const words = text.split(/\s+/).length;
 
-      if(wordCount > 400){
+      if(words>400){
+
+        console.log("Context found:",source.name,words);
 
         return text.slice(0,2000);
 
       }
 
-      console.log(`Context too short (${wordCount}) retrying`);
-
     }catch(err){
 
-      console.log("Context fetch failed");
+      console.log("Context attempt failed");
 
     }
 
   }
 
-  return "Literary theory examines how texts produce meaning and how readers interpret literature.";
-
-}
-
-/* --------------------------------
-SAFE JSON PARSE
--------------------------------- */
-
-function safeJSON(text){
-
-  try{
-
-    const match = text.match(/\[[\s\S]*\]/);
-
-    if(!match) return [];
-
-    const parsed = JSON.parse(match[0]);
-
-    if(!Array.isArray(parsed)) return [];
-
-    return parsed;
-
-  }catch(err){
-
-    console.log("JSON parse failed");
-
-    return [];
-
-  }
-
-}
-
-/* --------------------------------
-GENERATE QUESTIONS
--------------------------------- */
-
-async function generateBatch(topic,context){
-
-  const prompt = `
-
-You are generating quiz questions for university literature students.
-
-Topic: ${topic}
-
-Context:
-${context}
-
-Generate exactly 10 multiple choice questions.
-
-Rules:
-
-- Each question must relate to the topic
-- 4 answer options labeled A B C D
-- Only one correct answer
-- No explanations
-- Return ONLY valid JSON
-- Do not include commentary or markdown
-
-Format:
-
-[
-{
-"id":"1",
-"question":"text",
-"options":{
-"A":"option",
-"B":"option",
-"C":"option",
-"D":"option"
-},
-"answer":"A"
-}
-]
-
-`;
-
-  const completion = await groq.chat.completions.create({
-
-    model:"llama-3.1-8b-instant",
-    temperature:0.2,
-    max_tokens:900,
-
-    messages:[
-      { role:"user", content:prompt }
-    ]
-
-  });
-
-  const raw = completion.choices[0].message.content;
-
-  return safeJSON(raw);
-
-}
-
-/* --------------------------------
-GET QUESTION
--------------------------------- */
-
-function getQuestion(topic,seen){
-
-  const available = questionCache[topic].filter(
-    q => !seen.includes(q.id)
-  );
-
-  if(!available.length) return null;
-
-  return available[
-    Math.floor(Math.random()*available.length)
-  ];
-
-}
-
-/* --------------------------------
-MAIN HANDLER
--------------------------------- */
-
-export default async function handler(req,res){
-
-  if(req.method !== "POST"){
-    return res.status(405).json({ error:"Method Not Allowed" });
-  }
-
-  try{
-
-    let { topic, seen=[] } = req.body;
-
-    if(!Array.isArray(seen)) seen = [];
-
-    if(!topic){
-      return res.status(400).json({ error:"Topic required" });
-    }
-
-    topic = normalizeTopic(topic);
-    topic = autocorrectTopic(topic);
-
-    /* SESSION INIT */
-
-    if(!topicSessions[topic]){
-      topicSessions[topic] = {
-        count:0,
-        max:10
-      };
-    }
-
-    if(topicSessions[topic].count >= 10){
-      return res.json({ finished:true });
-    }
-
-    /* CACHE INIT */
-
-    if(!questionCache[topic]){
-      questionCache[topic] = [];
-    }
-
-    /* GENERATE QUESTIONS IF NEEDED */
-
-    if(questionCache[topic].length < 10){
-
-      const context = await fetchContext(topic);
-
-      const batch = await generateBatch(topic,context);
-
-      if(Array.isArray(batch) && batch.length){
-
-        batch.forEach((q,i)=>{
-          q.id = `${topic}_${Date.now()}_${i}`;
-        });
-
-        questionCache[topic].push(...batch);
-
-      }
-
-    }
-
-    /* GET QUESTION */
-
-    const q = getQuestion(topic,seen);
-
-    if(!q){
-
-      return res.status(500).json({
-        error:"Question generation failed"
-      });
-
-    }
-
-    topicSessions[topic].count++;
-
-    return res.json({
-
-      id:q.id,
-      question:q.question,
-      options:q.options,
-      answer:q.answer,
-
-      progress:topicSessions[topic].count,
-      remaining:10-topicSessions[topic].count,
-
-      canNext:false
-
-    });
-
-  }catch(err){
-
-    console.log("SERVER ERROR:",err);
-
-    return res.status(500).json({
-      error:"Generation failed"
-    });
-
-  }
+  return "Literary theory studies how texts produce meaning and how readers interpret literature.";
 
 }
