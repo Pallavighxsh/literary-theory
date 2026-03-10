@@ -125,7 +125,6 @@ function autocorrectTopic(topic){
 /* --------------------------------
 SCRAPE INTRO TEXT
 -------------------------------- */
-
 async function scrapeIntro(url){
 
   try{
@@ -137,7 +136,7 @@ async function scrapeIntro(url){
 
     const html = response.data;
 
-    const $ = load(html);
+    const $ = cheerio.load(html);
 
     const paragraphs = $("p");
 
