@@ -223,7 +223,7 @@ submitEmailBtn.addEventListener("click", async () => {
 
     try {
 
-        await fetch("/api/capture-email", {
+        const response = await fetch("/api/capture-email", {
 
             method: "POST",
 
@@ -232,30 +232,53 @@ submitEmailBtn.addEventListener("click", async () => {
             },
 
             body: JSON.stringify({
-                email: email,
-                question: question
+                email,
+                question
             })
 
         });
 
-        console.log("Email captured successfully");
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error("Submission failed");
+        }
+
+        /* success message */
+
+        const popupContent = document.querySelector(".popup-content");
+
+        if (popupContent) {
+
+            popupContent.innerHTML = `
+            <h3>✅ Message received</h3>
+            <p>
+            Thank you! Your request has been recorded.
+            The quiz question will download automatically.
+            </p>
+            `;
+
+        }
 
     } catch (err) {
 
-        console.error("Email capture failed", err);
+        alert("Something went wrong. Please try again.");
 
     }
 
-    /* store email locally */
     localStorage.setItem("hotseat_email", email);
 
     userEmail = email;
 
-    downloadQuestion(question);
+    setTimeout(() => {
 
-    const popup = document.getElementById("email-popup");
+        downloadQuestion(question);
 
-    if (popup) popup.classList.add("hidden");
+        const popup = document.getElementById("email-popup");
+
+        if (popup) popup.classList.add("hidden");
+
+    }, 1500);
 
 });
 
