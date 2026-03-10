@@ -1,5 +1,5 @@
 import axios from "axios";
-import { load } from "cheerio";
+import * as cheerio from "cheerio";
 import Groq from "groq-sdk";
 
 /* --------------------------------
@@ -76,13 +76,7 @@ const HUMANITIES_SOURCES = [
 
 /* Britannica */
 
-"https://www.britannica.com/topic/postmodernism",
-"https://www.britannica.com/topic/literary-criticism",
-
-/* Marxists Internet Archive */
-
-"https://www.marxists.org/archive/gramsci/",
-"https://www.marxists.org/archive/lukacs/"
+"https://www.britannica.com/",
 
 ];
 
@@ -108,8 +102,6 @@ SIMPLE AUTOCORRECT
 
 function autocorrectTopic(topic){
 
-  const words = topic.split(" ");
-
   for(const known of KNOWN_TOPICS){
 
     if(topic.includes(known)){
@@ -125,6 +117,7 @@ function autocorrectTopic(topic){
 /* --------------------------------
 SCRAPE INTRO TEXT
 -------------------------------- */
+
 async function scrapeIntro(url){
 
   try{
@@ -201,9 +194,7 @@ function extractKeywords(context){
     .match(/\b[a-z]{6,}\b/g);
 
   if(!words){
-
     return { anchor, keywords:[] };
-
   }
 
   const unique = [...new Set(words)];
@@ -211,10 +202,8 @@ function extractKeywords(context){
   const filtered = unique.filter(w => !STOPWORDS.includes(w));
 
   return {
-
     anchor,
     keywords: filtered.slice(0,5)
-
   };
 
 }
@@ -244,7 +233,7 @@ function safeJSON(text){
 }
 
 /* --------------------------------
-GENERATE BATCH (10 QUESTIONS)
+GENERATE BATCH
 -------------------------------- */
 
 async function generateBatch(topic,anchor,keyword){
@@ -295,9 +284,7 @@ Format:
 
   const raw = completion.choices[0].message.content;
 
-  const parsed = safeJSON(raw);
-
-  return parsed;
+  return safeJSON(raw);
 
 }
 
@@ -308,9 +295,7 @@ MAIN API HANDLER
 export default async function handler(req,res){
 
   if(req.method !== "POST"){
-
     return res.status(405).json({ error:"Method Not Allowed" });
-
   }
 
   try{
@@ -318,47 +303,26 @@ export default async function handler(req,res){
     let { topic, seen=[] } = req.body;
 
     if(!topic){
-
       return res.status(400).json({ error:"Topic required" });
-
     }
-
-    /* Normalize topic */
 
     topic = normalizeTopic(topic);
-
     topic = autocorrectTopic(topic);
 
-    /* Create topic cache */
-
     if(!questionCache[topic]){
-
       questionCache[topic] = [];
-
     }
 
-    /* Start session if not existing */
-
     if(!topicSessions[topic]){
-
       topicSessions[topic] = {
         count:0,
         max:10
       };
-
     }
-
-    /* Lock topic if session complete */
 
     if(topicSessions[topic].count >= 10){
-
-      return res.json({
-        finished:true
-      });
-
+      return res.json({ finished:true });
     }
-
-    /* Generate batch if cache low */
 
     if(questionCache[topic].length < 3){
 
@@ -370,32 +334,25 @@ export default async function handler(req,res){
 
       const batch = await generateBatch(topic,anchor,keyword);
 
-      batch.forEach((q,i)=>{
+      if(Array.isArray(batch)){
 
-        q.id = `${topic}_${Date.now()}_${i}`;
+        batch.forEach((q,i)=>{
+          q.id = `${topic}_${Date.now()}_${i}`;
+        });
 
-      });
+        questionCache[topic].push(...batch);
 
-      questionCache[topic].push(...batch);
-
-      /* Limit cache size */
+      }
 
       if(questionCache[topic].length > 50){
-
-        questionCache[topic] =
-          questionCache[topic].slice(-50);
-
+        questionCache[topic] = questionCache[topic].slice(-50);
       }
 
     }
 
-    /* Filter seen */
-
     let filtered = questionCache[topic].filter(
       q => !seen.includes(q.id)
     );
-
-    /* If empty generate again */
 
     if(filtered.length === 0){
 
@@ -407,13 +364,15 @@ export default async function handler(req,res){
 
       const batch = await generateBatch(topic,anchor,keyword);
 
-      batch.forEach((q,i)=>{
+      if(Array.isArray(batch)){
 
-        q.id = `${topic}_${Date.now()}_${i}`;
+        batch.forEach((q,i)=>{
+          q.id = `${topic}_${Date.now()}_${i}`;
+        });
 
-      });
+        questionCache[topic].push(...batch);
 
-      questionCache[topic].push(...batch);
+      }
 
       filtered = questionCache[topic].filter(
         q => !seen.includes(q.id)
@@ -421,13 +380,9 @@ export default async function handler(req,res){
 
     }
 
-    /* Pick random */
-
     const q = filtered[
       Math.floor(Math.random()*filtered.length)
     ];
-
-    /* Update session */
 
     topicSessions[topic].count++;
 
@@ -439,7 +394,9 @@ export default async function handler(req,res){
       answer:q.answer,
 
       progress:topicSessions[topic].count,
-      remaining:10-topicSessions[topic].count
+      remaining:10-topicSessions[topic].count,
+
+      canNext:false   // 👈 frontend should disable next button
 
     });
 
