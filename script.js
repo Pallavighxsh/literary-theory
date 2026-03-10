@@ -2,7 +2,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 console.log("Quiz script loaded");
 
-let userEmail = null;
 let seenIds = [];
 
 let quizStarted = false;
@@ -24,41 +23,6 @@ const answerText = document.getElementById("answer");
 const status = document.getElementById("status");
 
 const quiz = document.getElementById("quiz");
-
-const startBtn = document.getElementById("startBtn");
-
-/* -------------------------
-START SESSION
-------------------------- */
-
-if(startBtn){
-
-startBtn.addEventListener("click",()=>{
-
-const emailField = document.getElementById("email");
-
-if(!emailField) return;
-
-const email = emailField.value.trim();
-
-if(!email){
-alert("Please enter your email");
-return;
-}
-
-userEmail = email;
-
-const signup = document.getElementById("signup-section");
-const quizSection = document.getElementById("quiz-section");
-
-if(signup) signup.classList.add("hidden");
-if(quizSection) quizSection.classList.remove("hidden");
-
-renderHistory();
-
-});
-
-}
 
 /* -------------------------
 FETCH QUESTION
@@ -144,7 +108,7 @@ nextBtn.disabled = false;
 
 nextBtn.disabled = true;
 
-status.innerText = "✅ You finished all 10 questions. Enter a new topic.";
+status.innerText = "✅ You finished all 10 questions. You may download them.";
 
 quizStarted = false;
 generateBtn.disabled = false;
@@ -232,9 +196,15 @@ return;
 
 }
 
+/* reset */
+
 seenIds = [];
 questionsSeen = 0;
 quizStarted = false;
+
+/* clear stored questions */
+
+localStorage.removeItem("quiz_history");
 
 getQuestion();
 
@@ -258,9 +228,7 @@ QUESTION HISTORY
 
 function saveQuestion(q){
 
-if(!userEmail) return;
-
-const key = `history_${userEmail}`;
+const key = "quiz_history";
 
 const history = JSON.parse(localStorage.getItem(key)) || [];
 
@@ -274,13 +242,11 @@ renderHistory();
 
 function renderHistory(){
 
-if(!userEmail) return;
-
 const container = document.getElementById("questionHistory");
 
 if(!container) return;
 
-const key = `history_${userEmail}`;
+const key = "quiz_history";
 
 const history = JSON.parse(localStorage.getItem(key)) || [];
 
@@ -301,51 +267,63 @@ container.appendChild(div);
 }
 
 /* -------------------------
-DOWNLOAD HISTORY
+DOWNLOAD QUESTIONS
 ------------------------- */
 
 const downloadAllBtn = document.getElementById("downloadAllBtn");
 
 if(downloadAllBtn){
 
-downloadAllBtn.addEventListener("click",()=>{
+downloadAllBtn.addEventListener("click", async ()=>{
 
-if(!userEmail) return;
+const history = JSON.parse(localStorage.getItem("quiz_history")) || [];
 
-const key = `history_${userEmail}`;
+if(history.length < 10){
 
-const history = JSON.parse(localStorage.getItem(key)) || [];
+alert("You must complete all 10 questions before downloading.");
 
-if(history.length === 0){
-
-alert("No questions yet");
 return;
 
 }
 
-const text = history.map(q => {
+const passkey = prompt("Enter download passkey");
 
-return `${q.question}
+if(!passkey) return;
 
-A. ${q.options.A}
-B. ${q.options.B}
-C. ${q.options.C}
-D. ${q.options.D}
+try{
 
-Answer: ${q.answer}
+const res = await fetch("/api/capture-download",{
 
----------------------------`;
+method:"POST",
 
-}).join("\n\n");
+headers:{
+"Content-Type":"application/json"
+},
 
-const blob = new Blob([text],{type:"text/plain"});
+body:JSON.stringify({
+passkey:passkey,
+questions:history.slice(-10)
+})
+
+});
+
+if(!res.ok){
+
+alert("Invalid passkey or download failed.");
+
+return;
+
+}
+
+const blob = await res.blob();
 
 const url = URL.createObjectURL(blob);
 
 const a = document.createElement("a");
 
 a.href = url;
-a.download = "literary_theory_questions.txt";
+
+a.download = "literary_theory_questions.docx";
 
 document.body.appendChild(a);
 
@@ -353,8 +331,20 @@ a.click();
 
 document.body.removeChild(a);
 
+}catch(err){
+
+console.error(err);
+
+alert("Download failed");
+
+}
+
 });
 
 }
+
+/* load history on page load */
+
+renderHistory();
 
 });
