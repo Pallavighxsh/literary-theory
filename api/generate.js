@@ -25,14 +25,52 @@ const KNOWN_TOPICS = [
 "structuralism",
 "poststructuralism",
 "deconstruction",
-"hermeneutics",
-"postmodernism",
-"feminist theory",
-"marxist criticism",
+"formalism",
+"new criticism",
 "reader response theory",
+"hermeneutics",
 "semiotics",
 "narratology",
+"postmodernism",
+"modernism",
+"marxist criticism",
+"feminist theory",
+"psychoanalytic criticism",
+"archetypal criticism",
+"postcolonial theory",
+"new historicism",
+"cultural materialism",
+"ecocriticism",
+"queer theory",
 "critical theory"
+];
+
+/* --------------------------------
+CONTEXT SOURCES
+-------------------------------- */
+
+const CONTEXT_SOURCES = [
+
+{
+name:"stanford",
+search:(topic)=>`https://plato.stanford.edu/search/searcher.py?query=${encodeURIComponent(topic)}`
+},
+
+{
+name:"iep",
+search:(topic)=>`https://iep.utm.edu/?s=${encodeURIComponent(topic)}`
+},
+
+{
+name:"britannica",
+search:(topic)=>`https://www.britannica.com/search?query=${encodeURIComponent(topic)}`
+},
+
+{
+name:"wikipedia",
+search:(topic)=>`https://en.wikipedia.org/wiki/${encodeURIComponent(topic)}`
+}
+
 ];
 
 /* --------------------------------
@@ -67,47 +105,61 @@ function autocorrectTopic(topic){
 }
 
 /* --------------------------------
-FETCH CONTEXT (TOPIC BASED)
+FETCH CONTEXT
 -------------------------------- */
 
 async function fetchContext(topic){
 
-  try{
+  let attempts = 0;
 
-    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(topic)}`;
+  while(attempts < 4){
 
-    const response = await axios.get(url,{
-      timeout:8000,
-      headers:{ "User-Agent":"Mozilla/5.0" }
-    });
+    attempts++;
 
-    const $ = cheerio.load(response.data);
+    try{
 
-    const paragraphs = $("p");
+      const source = CONTEXT_SOURCES[
+        Math.floor(Math.random()*CONTEXT_SOURCES.length)
+      ];
 
-    let text = "";
+      const url = source.search(topic);
 
-    paragraphs.each((i,el)=>{
+      const response = await axios.get(url,{
+        timeout:8000,
+        headers:{ "User-Agent":"Mozilla/5.0" }
+      });
 
-      if(i < 4){
-        text += $(el).text();
+      const $ = cheerio.load(response.data);
+
+      let text = "";
+
+      $("p").each((i,el)=>{
+
+        if(i < 10){
+          text += $(el).text()+" ";
+        }
+
+      });
+
+      const wordCount = text.split(/\s+/).length;
+
+      if(wordCount > 400){
+
+        return text.slice(0,2000);
+
       }
 
-    });
+      console.log(`Context too short (${wordCount}) retrying`);
 
-    if(text.length < 80){
-      return "Literary theory explores methods of interpreting texts and understanding how meaning is produced in literature.";
+    }catch(err){
+
+      console.log("Context fetch failed");
+
     }
 
-    return text.slice(0,1200);
-
-  }catch(err){
-
-    console.log("Context fetch failed");
-
-    return "Literary theory explores how meaning is produced in texts and how readers interpret literature.";
-
   }
+
+  return "Literary theory examines how texts produce meaning and how readers interpret literature.";
 
 }
 
@@ -119,16 +171,15 @@ function safeJSON(text){
 
   try{
 
-    const start = text.indexOf("[");
-    const end = text.lastIndexOf("]");
+    const match = text.match(/\[[\s\S]*\]/);
 
-    if(start === -1 || end === -1){
-      return [];
-    }
+    if(!match) return [];
 
-    const json = text.slice(start,end+1);
+    const parsed = JSON.parse(match[0]);
 
-    return JSON.parse(json);
+    if(!Array.isArray(parsed)) return [];
+
+    return parsed;
 
   }catch(err){
 
@@ -148,23 +199,23 @@ async function generateBatch(topic,context){
 
   const prompt = `
 
-You are generating quiz questions for literature students.
+You are generating quiz questions for university literature students.
 
 Topic: ${topic}
 
 Context:
 ${context}
 
-Generate 20 multiple choice questions.
+Generate exactly 10 multiple choice questions.
 
 Rules:
 
-- Each question must test a concept related to the topic
+- Each question must relate to the topic
 - 4 answer options labeled A B C D
 - Only one correct answer
 - No explanations
 - Return ONLY valid JSON
-- Do not include commentary
+- Do not include commentary or markdown
 
 Format:
 
@@ -187,8 +238,8 @@ Format:
   const completion = await groq.chat.completions.create({
 
     model:"llama-3.1-8b-instant",
-    temperature:0.3,
-    max_tokens:1500,
+    temperature:0.2,
+    max_tokens:900,
 
     messages:[
       { role:"user", content:prompt }
@@ -212,11 +263,11 @@ function getQuestion(topic,seen){
     q => !seen.includes(q.id)
   );
 
-  if(!available.length){
-    return null;
-  }
+  if(!available.length) return null;
 
-  return available[Math.floor(Math.random()*available.length)];
+  return available[
+    Math.floor(Math.random()*available.length)
+  ];
 
 }
 
@@ -233,6 +284,8 @@ export default async function handler(req,res){
   try{
 
     let { topic, seen=[] } = req.body;
+
+    if(!Array.isArray(seen)) seen = [];
 
     if(!topic){
       return res.status(400).json({ error:"Topic required" });
@@ -260,7 +313,7 @@ export default async function handler(req,res){
       questionCache[topic] = [];
     }
 
-    /* GENERATE IF CACHE LOW */
+    /* GENERATE QUESTIONS IF NEEDED */
 
     if(questionCache[topic].length < 10){
 
@@ -285,9 +338,11 @@ export default async function handler(req,res){
     const q = getQuestion(topic,seen);
 
     if(!q){
+
       return res.status(500).json({
         error:"Question generation failed"
       });
+
     }
 
     topicSessions[topic].count++;
