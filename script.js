@@ -4,319 +4,182 @@ let userEmail = null;
 
 const MAX_ATTEMPTS = 5;
 
+const seenIds = [];
+
 const generateBtn = document.getElementById("generateBtn");
-const downloadBtn = document.getElementById("downloadBtn");
 const output = document.getElementById("output");
 
-if (downloadBtn) {
-    downloadBtn.disabled = true;
-}
-
-/* --------------------------------------------------
-ATTEMPT TRACKING
--------------------------------------------------- */
-
-function getTodayKey(email) {
-
-    const today = new Date().toISOString().slice(0, 10);
-
-    return `hotseat_${email}_${today}`;
-
-}
-
-function updateAttemptsDisplay() {
-
-    if (!userEmail) return;
-
-    const key = getTodayKey(userEmail);
-
-    const attempts = parseInt(localStorage.getItem(key)) || 0;
-
-    const attemptsEl = document.getElementById("attempts");
-
-    if (attemptsEl) {
-        attemptsEl.innerText =
-            `Attempts used today: ${attempts} / ${MAX_ATTEMPTS}`;
-    }
-
-}
-
-/* --------------------------------------------------
+/* -------------------------------
 START SESSION
--------------------------------------------------- */
+--------------------------------*/
 
-const startBtn = document.getElementById("startBtn");
+document.getElementById("startBtn").addEventListener("click",()=>{
 
-if (startBtn) {
+const email = document.getElementById("email").value.trim();
 
-    startBtn.addEventListener("click", () => {
-
-        const emailField = document.getElementById("email");
-
-        if (!emailField) return;
-
-        const emailInput = emailField.value.trim();
-
-        if (!emailInput) {
-            alert("Please enter your email.");
-            return;
-        }
-
-        userEmail = emailInput;
-
-        const signupSection = document.getElementById("signup-section");
-        const quizSection = document.getElementById("quiz-section");
-
-        if (signupSection) signupSection.classList.add("hidden");
-        if (quizSection) quizSection.classList.remove("hidden");
-
-        updateAttemptsDisplay();
-
-    });
-
+if(!email){
+alert("Enter email");
+return;
 }
 
-/* --------------------------------------------------
+userEmail = email;
+
+document.getElementById("signup-section").classList.add("hidden");
+document.getElementById("quiz-section").classList.remove("hidden");
+
+});
+
+/* -------------------------------
 GENERATE QUIZ
--------------------------------------------------- */
+--------------------------------*/
 
-if (generateBtn) {
+generateBtn.addEventListener("click",async()=>{
 
-generateBtn.addEventListener("click", async () => {
+const topic = document.getElementById("topic").value.trim();
 
-    const topicField = document.getElementById("topic");
+if(!topic){
+alert("Enter topic");
+return;
+}
 
-    if (!topicField) return;
+output.innerText = "Generating...";
 
-    const topic = topicField.value.trim();
+try{
 
-    if (!topic) {
-        alert("Please enter a topic.");
-        return;
-    }
+const res = await fetch("/api/generate",{
 
-    const key = getTodayKey(userEmail);
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+body:JSON.stringify({
+topic,
+seen:seenIds
+})
 
-    let attempts = parseInt(localStorage.getItem(key)) || 0;
+});
 
-    if (attempts >= MAX_ATTEMPTS) {
+const data = await res.json();
 
-        showLimitReached();
+if(data.complete){
 
-        return;
-    }
+output.innerText = data.message;
 
-    attempts++;
+return;
 
-    localStorage.setItem(key, attempts);
+}
 
-    updateAttemptsDisplay();
+seenIds.push(data.id);
 
-    await generateQuiz(topic);
+displayQuestion(data.question);
+
+saveQuestion(data.question);
+
+}catch(err){
+
+output.innerText = "Generation failed.";
+
+}
+
+});
+
+/* -------------------------------
+DISPLAY QUESTION
+--------------------------------*/
+
+function displayQuestion(text){
+
+const parts = text.split("Answer Key:");
+
+const question = parts[0];
+const answer = parts[1];
+
+output.innerHTML = `
+
+<pre>${question}</pre>
+
+<button id="revealBtn">
+Reveal Answer
+</button>
+
+<div id="answer" class="hidden">
+Answer Key: ${answer}
+</div>
+
+`;
+
+document.getElementById("revealBtn").onclick=()=>{
+
+document.getElementById("answer").classList.remove("hidden");
+
+};
+
+}
+
+/* -------------------------------
+QUESTION HISTORY
+--------------------------------*/
+
+function saveQuestion(q){
+
+const key = `history_${userEmail}`;
+
+const history = JSON.parse(localStorage.getItem(key)) || [];
+
+history.push(q);
+
+localStorage.setItem(key,JSON.stringify(history));
+
+renderHistory();
+
+}
+
+function renderHistory(){
+
+const container = document.getElementById("questionHistory");
+
+if(!container) return;
+
+const key = `history_${userEmail}`;
+
+const history = JSON.parse(localStorage.getItem(key)) || [];
+
+container.innerHTML="";
+
+history.forEach(q=>{
+
+const div=document.createElement("div");
+
+div.className="history-item";
+
+div.innerText=q;
+
+container.appendChild(div);
 
 });
 
 }
 
-/* --------------------------------------------------
-CALL BACKEND
--------------------------------------------------- */
+/* -------------------------------
+DOWNLOAD ALL
+--------------------------------*/
 
-async function generateQuiz(topic) {
+document.getElementById("downloadAllBtn").addEventListener("click",()=>{
 
-    if (!output) return;
+const key = `history_${userEmail}`;
 
-    output.innerText = "Generating question...";
+const history = JSON.parse(localStorage.getItem(key)) || [];
 
-    try {
+const text = history.join("\n\n----------------\n\n");
 
-        const response = await fetch("https://literary-theory.vercel.app/api/generate", {
+const blob = new Blob([text],{type:"text/plain"});
 
-            method: "POST",
+const url = URL.createObjectURL(blob);
 
-            headers: {
-                "Content-Type": "application/json"
-            },
+const a=document.createElement("a");
 
-            body: JSON.stringify({
-                topic: topic
-            })
+a.href=url;
 
-        });
+a.download="literary_theory_questions.txt";
 
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || "Generation failed");
-        }
-
-        output.innerText = data.question;
-
-        if (downloadBtn) {
-            downloadBtn.disabled = false;
-        }
-
-    } catch (err) {
-
-        console.error(err);
-
-        output.innerText = "⚠️ Could not generate question.";
-
-    }
-
-}
-
-/* --------------------------------------------------
-DOWNLOAD BUTTON
--------------------------------------------------- */
-
-if (downloadBtn) {
-
-downloadBtn.addEventListener("click", () => {
-
-    const savedEmail = localStorage.getItem("hotseat_email");
-
-    const question = output ? output.innerText : "";
-
-    if (!question || question.length < 20) {
-        alert("Generate a question first.");
-        return;
-    }
-
-    if (savedEmail) {
-
-        downloadQuestion(question);
-
-    } else {
-
-        const popup = document.getElementById("email-popup");
-
-        if (popup) popup.classList.remove("hidden");
-
-    }
+a.click();
 
 });
-
-}
-
-/* --------------------------------------------------
-EMAIL SUBMISSION
--------------------------------------------------- */
-
-const submitEmailBtn = document.getElementById("submitEmail");
-
-if (submitEmailBtn) {
-
-submitEmailBtn.addEventListener("click", async () => {
-
-    const emailField = document.getElementById("downloadEmail");
-
-    if (!emailField) return;
-
-    const email = emailField.value.trim();
-    const question = output ? output.innerText : "";
-
-    if (!email) {
-        alert("Please enter your email.");
-        return;
-    }
-
-    try {
-
-        const response = await fetch("/api/capture-email", {
-
-            method: "POST",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({
-                email,
-                question
-            })
-
-        });
-
-        const data = await response.json();
-
-        if (!data.success) {
-            throw new Error("Submission failed");
-        }
-
-        /* success message */
-
-        const popupContent = document.querySelector(".popup-content");
-
-        if (popupContent) {
-
-            popupContent.innerHTML = `
-            <h3>✅ Message received</h3>
-            <p>
-            Thank you! Your request has been recorded.
-            The quiz question will download automatically.
-            </p>
-            `;
-
-        }
-
-    } catch (err) {
-
-        alert("Something went wrong. Please try again.");
-
-    }
-
-    localStorage.setItem("hotseat_email", email);
-
-    userEmail = email;
-
-    setTimeout(() => {
-
-        downloadQuestion(question);
-
-        const popup = document.getElementById("email-popup");
-
-        if (popup) popup.classList.add("hidden");
-
-    }, 1500);
-
-});
-
-}
-/* --------------------------------------------------
-DOWNLOAD FILE
--------------------------------------------------- */
-
-function downloadQuestion(text) {
-
-    const blob = new Blob([text], { type: "text/plain" });
-
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-
-    a.href = url;
-
-    a.download = "literary_theory_quiz.txt";
-
-    document.body.appendChild(a);
-
-    a.click();
-
-    document.body.removeChild(a);
-
-}
-
-/* --------------------------------------------------
-LIMIT SCREEN
--------------------------------------------------- */
-
-function showLimitReached() {
-
-    const quizSection = document.getElementById("quiz-section");
-    const limitSection = document.getElementById("limit-section");
-
-    if (quizSection) quizSection.classList.add("hidden");
-    if (limitSection) limitSection.classList.remove("hidden");
-
-}
