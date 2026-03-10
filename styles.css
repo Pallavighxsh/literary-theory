@@ -614,7 +614,11 @@ background:#e8f4ff;
 
 }
 
-
+.quiz-end-message{
+  color:#cc0000;
+  margin-top:10px;
+  font-size:14px;
+}
 
 /* =====================================================
 DOWNLOAD
@@ -812,6 +816,28 @@ UTILITIES
 display:none;
 }
 
+.browse-book-btn{
+
+background:#87ceeb;
+color:#001f3f;
+
+padding:12px 18px;
+
+border:none;
+
+border-radius:8px;
+
+cursor:pointer;
+
+font-weight:600;
+
+white-space:pre-wrap;
+
+}
+
+.browse-book-btn:hover{
+opacity:0.9;
+}
 
 
 /* =====================================================
