@@ -4,10 +4,24 @@ console.log("Quiz script loaded");
 
 let userEmail = null;
 
-const seenIds = [];
+let seenIds = [];
+
+/* ELEMENTS */
 
 const generateBtn = document.getElementById("generateBtn");
-const output = document.getElementById("output");
+const nextBtn = document.getElementById("nextQuestion");
+const revealBtn = document.getElementById("showAnswer");
+
+const topicField = document.getElementById("topic");
+
+const questionText = document.getElementById("questionText");
+const optionsList = document.getElementById("options");
+const answerText = document.getElementById("answer");
+
+const status = document.getElementById("status");
+
+const quiz = document.getElementById("quiz");
+
 const startBtn = document.getElementById("startBtn");
 
 /* -------------------------
@@ -32,10 +46,10 @@ return;
 userEmail = email;
 
 const signup = document.getElementById("signup-section");
-const quiz = document.getElementById("quiz-section");
+const quizSection = document.getElementById("quiz-section");
 
 if(signup) signup.classList.add("hidden");
-if(quiz) quiz.classList.remove("hidden");
+if(quizSection) quizSection.classList.remove("hidden");
 
 renderHistory();
 
@@ -44,31 +58,26 @@ renderHistory();
 }
 
 /* -------------------------
-GENERATE QUIZ
+FETCH QUESTION
 ------------------------- */
 
-if(generateBtn){
-
-generateBtn.addEventListener("click",async()=>{
-
-const topicField = document.getElementById("topic");
-
-if(!topicField) return;
+async function getQuestion(){
 
 const topic = topicField.value.trim();
 
 if(!topic){
-alert("Enter topic");
+
+alert("Enter a topic");
+
 return;
+
 }
 
-if(!output) return;
-
-output.innerText = "Generating question...";
+status.innerText = "Generating question...";
 
 try{
 
-const response = await fetch("/api/generate",{
+const res = await fetch("/api/generate",{
 
 method:"POST",
 
@@ -83,11 +92,11 @@ seen:seenIds
 
 });
 
-const data = await response.json();
+const data = await res.json();
 
 if(data.complete){
 
-output.innerText = data.message;
+status.innerText = data.message;
 
 return;
 
@@ -95,58 +104,95 @@ return;
 
 seenIds.push(data.id);
 
-displayQuestion(data.question);
+renderQuestion(data);
 
-saveQuestion(data.question);
+saveQuestion(data);
+
+status.innerText = "";
 
 }catch(err){
 
 console.error(err);
 
-output.innerText = "⚠️ Generation failed.";
+status.innerText = "⚠️ Generation failed.";
 
 }
+
+}
+
+/* -------------------------
+RENDER QUESTION
+------------------------- */
+
+function renderQuestion(q){
+
+if(!quiz) return;
+
+quiz.classList.remove("hidden");
+
+questionText.innerText = q.question;
+
+/* clear options */
+
+optionsList.innerHTML = "";
+
+/* render options */
+
+Object.entries(q.options).forEach(([key,val])=>{
+
+const li = document.createElement("li");
+
+li.innerText = key + ". " + val;
+
+optionsList.appendChild(li);
+
+});
+
+/* set answer */
+
+answerText.innerText = "Answer: " + q.answer;
+
+answerText.classList.add("hidden");
+
+}
+
+/* -------------------------
+REVEAL ANSWER
+------------------------- */
+
+if(revealBtn){
+
+revealBtn.addEventListener("click",()=>{
+
+answerText.classList.remove("hidden");
 
 });
 
 }
 
 /* -------------------------
-DISPLAY QUESTION
+BUTTON EVENTS
 ------------------------- */
 
-function displayQuestion(text){
+if(generateBtn){
 
-const parts = text.split("Answer Key:");
+generateBtn.addEventListener("click",()=>{
 
-const question = parts[0];
-const answer = parts[1] ? parts[1].trim() : "";
+seenIds = []; // reset when new topic started
 
-output.innerHTML = `
+getQuestion();
 
-<pre>${question}</pre>
-
-<button id="revealBtn">Reveal Answer</button>
-
-<div id="answer" class="hidden">
-Answer Key: ${answer}
-</div>
-
-`;
-
-const revealBtn = document.getElementById("revealBtn");
-
-if(revealBtn){
-
-revealBtn.onclick = ()=>{
-
-const ans = document.getElementById("answer");
-
-if(ans) ans.classList.remove("hidden");
-
-};
+});
 
 }
+
+if(nextBtn){
+
+nextBtn.addEventListener("click",()=>{
+
+getQuestion();
+
+});
 
 }
 
@@ -182,15 +228,15 @@ const key = `history_${userEmail}`;
 
 const history = JSON.parse(localStorage.getItem(key)) || [];
 
-container.innerHTML="";
+container.innerHTML = "";
 
 history.forEach(q=>{
 
-const div=document.createElement("div");
+const div = document.createElement("div");
 
-div.className="history-item";
+div.className = "history-item";
 
-div.innerText=q;
+div.innerText = q.question;
 
 container.appendChild(div);
 
@@ -199,7 +245,7 @@ container.appendChild(div);
 }
 
 /* -------------------------
-DOWNLOAD ALL
+DOWNLOAD HISTORY
 ------------------------- */
 
 const downloadAllBtn = document.getElementById("downloadAllBtn");
@@ -214,7 +260,7 @@ const key = `history_${userEmail}`;
 
 const history = JSON.parse(localStorage.getItem(key)) || [];
 
-if(history.length===0){
+if(history.length === 0){
 
 alert("No questions yet");
 
@@ -222,7 +268,20 @@ return;
 
 }
 
-const text = history.join("\n\n-----------------\n\n");
+const text = history.map(q => {
+
+return `${q.question}
+
+A. ${q.options.A}
+B. ${q.options.B}
+C. ${q.options.C}
+D. ${q.options.D}
+
+Answer: ${q.answer}
+
+---------------------------`;
+
+}).join("\n\n");
 
 const blob = new Blob([text],{type:"text/plain"});
 
