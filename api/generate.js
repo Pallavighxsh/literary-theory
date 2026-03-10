@@ -45,17 +45,28 @@ async function scrapeIntro(url){
       headers:{ "User-Agent":"Mozilla/5.0" }
     });
 
-    const $ = load(response.data);
+    const html = response.data;
 
-    const p = $("p").first().text().trim();
+    const $ = load(html);
 
-    if(!p || p.length < 40) return null;
+    const paragraphs = $("p");
 
-    return p;
+    if(!paragraphs || paragraphs.length === 0){
+      return null;
+    }
+
+    const first = paragraphs.eq(0).text().trim();
+
+    if(!first || first.length < 40){
+      return null;
+    }
+
+    return first;
 
   }catch(err){
 
     console.log("Scrape failed:",url);
+    console.log(err);
 
     return null;
 
