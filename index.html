@@ -90,14 +90,13 @@ to institutions upon adoption.
 </div>
 
 
-
 <div class="card app-card">
 
-<h3>Generate Quiz Questions</h3>
+<h3>Generate Literary Theory Quiz</h3>
 
 <textarea
 id="topic"
-placeholder="Enter a literary theory topic (example: Postcolonialism)">
+placeholder="Enter a literary theory topic (e.g. Structuralism, Postcolonialism, Deconstruction)">
 </textarea>
 
 <button id="generateBtn">
@@ -106,11 +105,26 @@ Generate Question
 
 <div id="status"></div>
 
-<pre id="output">
-Your quiz will appear here...
-</pre>
+<div id="quiz" class="quiz-area hidden">
+
+<p id="questionText" class="question"></p>
+
+<ul id="options" class="options"></ul>
+
+<button id="showAnswer" class="secondary-btn">
+Reveal Answer
+</button>
+
+<p id="answer" class="answer hidden"></p>
+
+<button id="nextQuestion" class="primary-btn">
+Next Question
+</button>
 
 </div>
+
+</div>
+
 
 </section>
 
