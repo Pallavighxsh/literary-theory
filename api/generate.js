@@ -18,7 +18,7 @@ const questionCache = {};
 const topicSessions = {};
 
 /* --------------------------------
-KNOWN TOPICS FOR AUTOCORRECT
+KNOWN TOPICS
 -------------------------------- */
 
 const KNOWN_TOPICS = [
@@ -36,43 +36,6 @@ const KNOWN_TOPICS = [
 ];
 
 /* --------------------------------
-STOPWORDS FOR KEYWORDS
--------------------------------- */
-
-const STOPWORDS = [
-"stanford",
-"internet",
-"philosophy",
-"university",
-"article",
-"introduction",
-"encyclopedia",
-"entries",
-"entry",
-"britannica"
-];
-
-/* --------------------------------
-SOURCE POOL
--------------------------------- */
-
-const HUMANITIES_SOURCES = [
-
-/* Stanford Encyclopedia */
-
-"https://plato.stanford.edu/",
-
-/* Internet Encyclopedia */
-
-"https://iep.utm.edu/",
-
-/* Britannica */
-
-"https://www.britannica.com/",
-
-];
-
-/* --------------------------------
 NORMALIZE TOPIC
 -------------------------------- */
 
@@ -80,7 +43,6 @@ function normalizeTopic(topic){
 
   return topic
     .toLowerCase()
-    .trim()
     .replace(/literary/g,"")
     .replace(/theory/g,"")
     .replace(/\s+/g," ")
@@ -89,17 +51,15 @@ function normalizeTopic(topic){
 }
 
 /* --------------------------------
-SIMPLE AUTOCORRECT
+AUTOCORRECT
 -------------------------------- */
 
 function autocorrectTopic(topic){
 
   for(const known of KNOWN_TOPICS){
-
     if(topic.includes(known)){
       return known;
     }
-
   }
 
   return topic;
@@ -107,96 +67,47 @@ function autocorrectTopic(topic){
 }
 
 /* --------------------------------
-SCRAPE INTRO TEXT
+FETCH CONTEXT (TOPIC BASED)
 -------------------------------- */
 
-async function scrapeIntro(url){
+async function fetchContext(topic){
 
   try{
+
+    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(topic)}`;
 
     const response = await axios.get(url,{
       timeout:8000,
       headers:{ "User-Agent":"Mozilla/5.0" }
     });
 
-    const html = response.data;
-
-    const $ = cheerio.load(html);
+    const $ = cheerio.load(response.data);
 
     const paragraphs = $("p");
 
-    if(!paragraphs || paragraphs.length === 0){
-      return null;
+    let text = "";
+
+    paragraphs.each((i,el)=>{
+
+      if(i < 4){
+        text += $(el).text();
+      }
+
+    });
+
+    if(text.length < 80){
+      return "Literary theory explores methods of interpreting texts and understanding how meaning is produced in literature.";
     }
 
-    const first = paragraphs.eq(0).text().trim();
-
-    if(!first || first.length < 40){
-      return null;
-    }
-
-    return first;
+    return text.slice(0,1200);
 
   }catch(err){
 
-    console.log("Scrape failed:",url);
-    return null;
+    console.log("Context fetch failed");
+
+    return "Literary theory explores how meaning is produced in texts and how readers interpret literature.";
 
   }
-
-}
-
-/* --------------------------------
-GET RANDOM CONTEXT
--------------------------------- */
-
-async function getRandomContext(){
-
-  const url = HUMANITIES_SOURCES[
-    Math.floor(Math.random()*HUMANITIES_SOURCES.length)
-  ];
-
-  const text = await scrapeIntro(url);
-
-  if(!text){
-
-    return {
-      text:"Literary theory studies how meaning is produced in texts and how readers interpret literature.",
-      url:"fallback"
-    };
-
-  }
-
-  return { text, url };
-
-}
-
-/* --------------------------------
-KEYWORD EXTRACTION
--------------------------------- */
-
-function extractKeywords(context){
-
-  const sentences = context.split(/[.!?]/);
-
-  const anchor = sentences.slice(0,2).join(". ").trim();
-
-  const words = context
-    .toLowerCase()
-    .match(/\b[a-z]{6,}\b/g);
-
-  if(!words){
-    return { anchor, keywords:[] };
-  }
-
-  const unique = [...new Set(words)];
-
-  const filtered = unique.filter(w => !STOPWORDS.includes(w));
-
-  return {
-    anchor,
-    keywords: filtered.slice(0,5)
-  };
 
 }
 
@@ -211,6 +122,10 @@ function safeJSON(text){
     const start = text.indexOf("[");
     const end = text.lastIndexOf("]");
 
+    if(start === -1 || end === -1){
+      return [];
+    }
+
     const json = text.slice(start,end+1);
 
     return JSON.parse(json);
@@ -218,6 +133,7 @@ function safeJSON(text){
   }catch(err){
 
     console.log("JSON parse failed");
+
     return [];
 
   }
@@ -225,30 +141,36 @@ function safeJSON(text){
 }
 
 /* --------------------------------
-GENERATE BATCH
+GENERATE QUESTIONS
 -------------------------------- */
 
-async function generateBatch(topic,anchor,keyword){
+async function generateBatch(topic,context){
 
   const prompt = `
 
-Generate 10 multiple choice questions.
+You are generating quiz questions for literature students.
 
 Topic: ${topic}
-Keyword: ${keyword}
-Context: ${anchor}
+
+Context:
+${context}
+
+Generate 20 multiple choice questions.
 
 Rules:
-- 4 options labeled A B C D
-- include correct answer letter
-- no explanations
-- return JSON only
+
+- Each question must test a concept related to the topic
+- 4 answer options labeled A B C D
+- Only one correct answer
+- No explanations
+- Return ONLY valid JSON
+- Do not include commentary
 
 Format:
 
 [
 {
-"id":"unique-id",
+"id":"1",
 "question":"text",
 "options":{
 "A":"option",
@@ -265,8 +187,8 @@ Format:
   const completion = await groq.chat.completions.create({
 
     model:"llama-3.1-8b-instant",
-    temperature:0.2,
-    max_tokens:1200,
+    temperature:0.3,
+    max_tokens:1500,
 
     messages:[
       { role:"user", content:prompt }
@@ -281,7 +203,25 @@ Format:
 }
 
 /* --------------------------------
-MAIN API HANDLER
+GET QUESTION
+-------------------------------- */
+
+function getQuestion(topic,seen){
+
+  const available = questionCache[topic].filter(
+    q => !seen.includes(q.id)
+  );
+
+  if(!available.length){
+    return null;
+  }
+
+  return available[Math.floor(Math.random()*available.length)];
+
+}
+
+/* --------------------------------
+MAIN HANDLER
 -------------------------------- */
 
 export default async function handler(req,res){
@@ -301,9 +241,7 @@ export default async function handler(req,res){
     topic = normalizeTopic(topic);
     topic = autocorrectTopic(topic);
 
-    if(!questionCache[topic]){
-      questionCache[topic] = [];
-    }
+    /* SESSION INIT */
 
     if(!topicSessions[topic]){
       topicSessions[topic] = {
@@ -316,17 +254,21 @@ export default async function handler(req,res){
       return res.json({ finished:true });
     }
 
-    if(questionCache[topic].length < 3){
+    /* CACHE INIT */
 
-      const context = await getRandomContext();
+    if(!questionCache[topic]){
+      questionCache[topic] = [];
+    }
 
-      const { anchor, keywords } = extractKeywords(context.text);
+    /* GENERATE IF CACHE LOW */
 
-      const keyword = keywords.length ? keywords[0] : topic;
+    if(questionCache[topic].length < 10){
 
-      const batch = await generateBatch(topic,anchor,keyword);
+      const context = await fetchContext(topic);
 
-      if(Array.isArray(batch)){
+      const batch = await generateBatch(topic,context);
+
+      if(Array.isArray(batch) && batch.length){
 
         batch.forEach((q,i)=>{
           q.id = `${topic}_${Date.now()}_${i}`;
@@ -336,45 +278,17 @@ export default async function handler(req,res){
 
       }
 
-      if(questionCache[topic].length > 50){
-        questionCache[topic] = questionCache[topic].slice(-50);
-      }
-
     }
 
-    let filtered = questionCache[topic].filter(
-      q => !seen.includes(q.id)
-    );
+    /* GET QUESTION */
 
-    if(filtered.length === 0){
+    const q = getQuestion(topic,seen);
 
-      const context = await getRandomContext();
-
-      const { anchor, keywords } = extractKeywords(context.text);
-
-      const keyword = keywords.length ? keywords[0] : topic;
-
-      const batch = await generateBatch(topic,anchor,keyword);
-
-      if(Array.isArray(batch)){
-
-        batch.forEach((q,i)=>{
-          q.id = `${topic}_${Date.now()}_${i}`;
-        });
-
-        questionCache[topic].push(...batch);
-
-      }
-
-      filtered = questionCache[topic].filter(
-        q => !seen.includes(q.id)
-      );
-
+    if(!q){
+      return res.status(500).json({
+        error:"Question generation failed"
+      });
     }
-
-    const q = filtered[
-      Math.floor(Math.random()*filtered.length)
-    ];
 
     topicSessions[topic].count++;
 
@@ -388,7 +302,7 @@ export default async function handler(req,res){
       progress:topicSessions[topic].count,
       remaining:10-topicSessions[topic].count,
 
-      canNext:false   // 👈 frontend should disable next button
+      canNext:false
 
     });
 
