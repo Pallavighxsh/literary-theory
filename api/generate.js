@@ -6,7 +6,6 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-
 /* --------------------------------------------------
    RANDOM SOURCE POOLS
 -------------------------------------------------- */
@@ -27,18 +26,18 @@ const IEP_PAGES = [
   "https://iep.utm.edu/literary-theory/",
 ];
 
-
 /* --------------------------------------------------
    SCRAPE FIRST PARAGRAPH
 -------------------------------------------------- */
 
 async function scrapeIntro(url) {
+
   try {
 
     const response = await axios.get(url, {
-      timeout: 6000,
+      timeout: 8000,
       headers: {
-        "User-Agent": "HotSeatPHI/1.0 Academic Teaching Tool",
+        "User-Agent": "Mozilla/5.0",
       },
     });
 
@@ -51,10 +50,13 @@ async function scrapeIntro(url) {
     return p;
 
   } catch (err) {
-    return null;
-  }
-}
 
+    console.log("Scrape failed:", url);
+    return null;
+
+  }
+
+}
 
 /* --------------------------------------------------
    RANDOM CONTEXT SELECTION
@@ -86,8 +88,8 @@ async function getRandomContext() {
     site,
     url,
   };
-}
 
+}
 
 /* --------------------------------------------------
    KEYWORD EXTRACTION
@@ -109,8 +111,8 @@ function extractKeywords(context) {
     anchor,
     keywords: unique.slice(0, 5),
   };
-}
 
+}
 
 /* --------------------------------------------------
    GROQ QUESTION GENERATION
@@ -121,27 +123,20 @@ async function generateQuestion(topic, anchor, keyword) {
   const prompt = `
 You are an academic revision question writer.
 
-GOAL:
 Generate ONE definitional multiple-choice question.
 
-TOPIC:
-${topic}
+Topic: ${topic}
+Keyword: ${keyword}
+Context: ${anchor}
 
-KEYWORD:
-${keyword}
-
-ANCHOR CONTEXT:
-${anchor}
-
-STRICT RULES:
-- Ask what the term means or refers to
+Rules:
 - Exactly 4 options
 - Include answer key
 - No explanations
 
-FORMAT:
+Format:
 
-Q1. What does "${keyword}" primarily refer to?
+Q1. Question
 
 A) Option
 B) Option
@@ -151,21 +146,39 @@ D) Option
 Answer Key: A/B/C/D
 `;
 
-  const completion = await groq.chat.completions.create({
-    model: "llama3-70b-8192",
-    temperature: 0.2,
-    max_tokens: 200,
-    messages: [
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-  });
+  try {
 
-  return completion.choices[0].message.content.trim();
+    const completion = await groq.chat.completions.create({
+
+      model: "llama3-70b-8192",
+
+      temperature: 0.2,
+
+      max_tokens: 200,
+
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const text = completion.choices[0].message.content.trim();
+
+    console.log("Groq success");
+
+    return text;
+
+  } catch (err) {
+
+    console.log("Groq error:", err.message);
+
+    throw err;
+
+  }
+
 }
-
 
 /* --------------------------------------------------
    FALLBACK QUESTION
@@ -181,9 +194,8 @@ C) A literary genre classification
 D) A technological development
 
 Answer Key: A`;
+
 }
-
-
 
 /* --------------------------------------------------
 VERCEL SERVERLESS HANDLER
@@ -191,90 +203,62 @@ VERCEL SERVERLESS HANDLER
 
 export default async function handler(req, res) {
 
-  const { url, method } = req;
+  if (req.method !== "POST") {
 
-  /* --------------------------------------------------
-  GENERATE QUESTION
-  -------------------------------------------------- */
+    return res.status(405).json({
+      error: "Method Not Allowed"
+    });
 
-  if (method === "POST" && url.includes("/generate")) {
+  }
 
-    try {
+  try {
 
-      const { topic } = req.body;
+    const { topic } = req.body;
 
-      if (!topic) {
-        return res.status(400).json({
-          error: "Topic required",
-        });
-      }
+    if (!topic) {
 
-      const context = await getRandomContext();
-
-      const { anchor, keywords } = extractKeywords(context.text);
-
-      const keyword = keywords.length ? keywords[0] : topic;
-
-      let question;
-
-      try {
-        question = await generateQuestion(topic, anchor, keyword);
-      } catch {
-        question = fallbackQuestion(topic, keyword);
-      }
-
-      return res.json({
-        question,
-        source: context.site,
-        url: context.url,
-      });
-
-    } catch {
-
-      return res.status(500).json({
-        error: "Generation failed",
+      return res.status(400).json({
+        error: "Topic required",
       });
 
     }
-  }
 
+    console.log("Topic:", topic);
 
-  /* --------------------------------------------------
-  EMAIL CAPTURE
-  -------------------------------------------------- */
+    const context = await getRandomContext();
 
-  if (method === "POST" && url.includes("/capture-email")) {
+    console.log("Source:", context.url);
+
+    const { anchor, keywords } = extractKeywords(context.text);
+
+    const keyword = keywords.length ? keywords[0] : topic;
+
+    let question;
 
     try {
 
-      const { email, question } = req.body;
-
-      console.log({
-        email,
-        question,
-        time: new Date().toISOString()
-      });
-
-      return res.json({
-        success: true
-      });
+      question = await generateQuestion(topic, anchor, keyword);
 
     } catch {
 
-      return res.status(500).json({
-        error: "Email capture failed"
-      });
+      question = fallbackQuestion(topic, keyword);
 
     }
+
+    return res.json({
+      question,
+      source: context.site,
+      url: context.url,
+    });
+
+  } catch (err) {
+
+    console.log("Generation error:", err);
+
+    return res.status(500).json({
+      error: "Generation failed",
+    });
+
   }
-
-
-  /* --------------------------------------------------
-  METHOD NOT ALLOWED
-  -------------------------------------------------- */
-
-  return res.status(405).json({
-    error: "Method Not Allowed"
-  });
 
 }
