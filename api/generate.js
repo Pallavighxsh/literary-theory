@@ -17,19 +17,19 @@ SOURCE POOLS
 --------------------------------*/
 
 const SEP_PAGES = [
-  "https://plato.stanford.edu/entries/hermeneutics/",
-  "https://plato.stanford.edu/entries/derrida/",
-  "https://plato.stanford.edu/entries/structuralism/",
-  "https://plato.stanford.edu/entries/postmodernism/",
-  "https://plato.stanford.edu/entries/aesthetics/"
+"https://plato.stanford.edu/entries/hermeneutics/",
+"https://plato.stanford.edu/entries/derrida/",
+"https://plato.stanford.edu/entries/structuralism/",
+"https://plato.stanford.edu/entries/postmodernism/",
+"https://plato.stanford.edu/entries/aesthetics/"
 ];
 
 const IEP_PAGES = [
-  "https://iep.utm.edu/deconstruction/",
-  "https://iep.utm.edu/hermeneutics/",
-  "https://iep.utm.edu/critical-theory/",
-  "https://iep.utm.edu/poststructuralism/",
-  "https://iep.utm.edu/literary-theory/"
+"https://iep.utm.edu/deconstruction/",
+"https://iep.utm.edu/hermeneutics/",
+"https://iep.utm.edu/critical-theory/",
+"https://iep.utm.edu/poststructuralism/",
+"https://iep.utm.edu/literary-theory/"
 ];
 
 /* -------------------------------
@@ -45,9 +45,7 @@ async function scrapeIntro(url){
       headers:{ "User-Agent":"Mozilla/5.0" }
     });
 
-    const html = response.data;
-
-    const $ = load(html);
+    const $ = load(response.data);
 
     const p = $("p").first().text().trim();
 
@@ -86,7 +84,7 @@ async function getRandomContext(){
   if(!text){
 
     return {
-      text:"Literary theory examines how meaning is produced in texts and how readers interpret literature.",
+      text:"Literary theory studies how meaning is produced in texts and how readers interpret literature.",
       site:"fallback",
       url:"none"
     };
@@ -109,11 +107,7 @@ function extractKeywords(context){
 
   const matches = context.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g);
 
-  if(!matches){
-
-    return { anchor, keywords:[] };
-
-  }
+  if(!matches) return { anchor, keywords:[] };
 
   const unique = [...new Set(matches)];
 
@@ -163,18 +157,24 @@ Keyword: ${keyword}
 Context: ${anchor}
 
 Rules:
-
-- exactly 4 options
-- include answer key
+- 4 options labeled A B C D
+- include correct answer letter
 - no explanations
-- return JSON array
+- return JSON only
 
 Format:
 
 [
 {
 "id":"unique-id",
-"question":"text"
+"question":"text",
+"options":{
+"A":"option",
+"B":"option",
+"C":"option",
+"D":"option"
+},
+"answer":"A"
 }
 ]
 `;
@@ -226,9 +226,7 @@ export default async function handler(req,res){
 
     }
 
-    /* --------------------------------
-    GENERATE NEW BATCH IF CACHE LOW
-    ---------------------------------*/
+    /* GENERATE NEW BATCH IF CACHE LOW */
 
     if(questionCache[topic].length < 3){
 
@@ -250,30 +248,37 @@ export default async function handler(req,res){
 
     }
 
-    /* --------------------------------
-    FILTER SEEN
-    ---------------------------------*/
+    /* FILTER SEEN QUESTIONS */
 
-    const filtered = questionCache[topic].filter(q => !seen.includes(q.id));
+    let filtered = questionCache[topic].filter(q => !seen.includes(q.id));
 
     if(filtered.length === 0){
 
-      return res.json({
-        complete:true,
-        message:"All questions completed for this topic."
+      const context = await getRandomContext();
+
+      const { anchor, keywords } = extractKeywords(context.text);
+
+      const keyword = keywords.length ? keywords[0] : topic;
+
+      const batch = await generateBatch(topic,anchor,keyword);
+
+      batch.forEach((q,i)=>{
+        q.id = `${topic}_${Date.now()}_${i}`;
       });
 
-    }
+      questionCache[topic].push(...batch);
 
-    /* --------------------------------
-    RETURN RANDOM QUESTION
-    ---------------------------------*/
+      filtered = questionCache[topic].filter(q => !seen.includes(q.id));
+
+    }
 
     const q = filtered[Math.floor(Math.random()*filtered.length)];
 
     return res.json({
       id:q.id,
-      question:q.question
+      question:q.question,
+      options:q.options,
+      answer:q.answer
     });
 
   }catch(err){
