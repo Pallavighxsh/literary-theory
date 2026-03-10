@@ -424,6 +424,36 @@ color:#444;
 
 }
 
+.quiz-area{
+margin-top:20px;
+}
+
+.question{
+font-size:20px;
+font-weight:600;
+margin-bottom:15px;
+}
+
+.options{
+list-style:none;
+padding:0;
+margin-bottom:15px;
+}
+
+.options li{
+padding:8px 0;
+font-size:18px;
+}
+
+.answer{
+margin-top:10px;
+font-weight:bold;
+color:#2c7a2c;
+}
+
+.hidden{
+display:none;
+}
 
 
 /* FORM LAYOUT */
