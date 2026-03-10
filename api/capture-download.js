@@ -1,114 +1,244 @@
-import { Document, Packer, Paragraph, TextRun } from "docx";
+document.addEventListener("DOMContentLoaded", () => {
 
-export default async function handler(req, res) {
+console.log("Quiz script loaded");
 
-if (req.method !== "POST") {
-  return res.status(405).json({ error: "Method Not Allowed" });
+/* -------------------------
+STATE
+------------------------- */
+
+let userTopic = "";
+let questionsSeen = 0;
+const MAX_QUESTIONS = 10;
+
+let currentQuestion = null;
+let quizQuestions = [];
+
+window.quizQuestions = quizQuestions;
+
+/* -------------------------
+ELEMENTS
+------------------------- */
+
+const topicInput = document.getElementById("topicInput");
+const generateBtn = document.getElementById("generateBtn");
+
+const questionBox = document.getElementById("questionBox");
+const optionsBox = document.getElementById("optionsBox");
+
+const nextBtn = document.getElementById("nextBtn");
+
+const quizEndMessage = document.getElementById("quizEndMessage");
+
+const passkeyInput = document.getElementById("downloadPasskey");
+const downloadBtn = document.getElementById("submitPasskey");
+
+
+/* -------------------------
+GENERATE QUESTION
+------------------------- */
+
+async function generateQuestion() {
+
+  if (questionsSeen >= MAX_QUESTIONS) {
+    quizEndMessage.textContent =
+      "You’ve reached the end of this quiz. Start a new topic to generate more questions.";
+    return;
+  }
+
+  quizEndMessage.textContent = "";
+
+  try {
+
+    const topic = topicInput.value.trim();
+
+    if (!topic) {
+      alert("Please enter a topic.");
+      return;
+    }
+
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        topic: topic
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error("Generation failed");
+    }
+
+    const data = await res.json();
+
+    currentQuestion = data;
+
+    questionsSeen++;
+
+    displayQuestion(data);
+
+    quizQuestions.push(data);
+
+    window.quizQuestions = quizQuestions;
+
+  } catch (err) {
+
+    console.error(err);
+    alert("Could not generate question.");
+
+  }
+
 }
 
-try {
 
-  const { passkey, questions } = req.body;
+/* -------------------------
+DISPLAY QUESTION
+------------------------- */
 
-  /* -------------------------
-  PASSKEY VALIDATION
-  ------------------------- */
+function displayQuestion(q) {
+
+  questionBox.textContent = q.question;
+
+  optionsBox.innerHTML = "";
+
+  Object.entries(q.options).forEach(([key, value]) => {
+
+    const btn = document.createElement("button");
+
+    btn.className = "option-btn";
+
+    btn.textContent = `${key}. ${value}`;
+
+    btn.addEventListener("click", () => {
+      revealAnswer(key);
+    });
+
+    optionsBox.appendChild(btn);
+
+  });
+
+}
+
+
+/* -------------------------
+REVEAL ANSWER
+------------------------- */
+
+function revealAnswer(choice) {
+
+  const buttons = document.querySelectorAll(".option-btn");
+
+  buttons.forEach(btn => {
+
+    if (btn.textContent.startsWith(currentQuestion.answer)) {
+      btn.style.background = "#4CAF50";
+    }
+
+    if (btn.textContent.startsWith(choice) && choice !== currentQuestion.answer) {
+      btn.style.background = "#e53935";
+    }
+
+  });
+
+}
+
+
+/* -------------------------
+GENERATE FIRST QUESTION
+------------------------- */
+
+generateBtn.addEventListener("click", () => {
+
+  questionsSeen = 0;
+  quizQuestions = [];
+  window.quizQuestions = quizQuestions;
+
+  nextBtn.disabled = false;
+
+  generateQuestion();
+
+});
+
+
+/* -------------------------
+NEXT QUESTION
+------------------------- */
+
+nextBtn.addEventListener("click", () => {
+
+  if (questionsSeen >= MAX_QUESTIONS) {
+
+    quizEndMessage.textContent =
+      "You’ve reached the end of this quiz. Start a new topic to generate more questions.";
+
+    nextBtn.disabled = true;
+
+    return;
+  }
+
+  generateQuestion();
+
+});
+
+
+/* -------------------------
+DOWNLOAD QUESTIONS
+------------------------- */
+
+downloadBtn.addEventListener("click", async () => {
+
+  const passkey = passkeyInput.value.trim();
 
   if (!passkey) {
-    return res.status(400).json({ error: "Passkey required" });
+    alert("Please enter your passkey.");
+    return;
   }
 
-  if (passkey !== process.env.DOWNLOAD_PASSKEY) {
-    return res.status(403).json({ error: "Invalid passkey" });
+  if (quizQuestions.length === 0) {
+    alert("No questions available to download.");
+    return;
   }
 
-  if (!questions || questions.length === 0) {
-    return res.status(400).json({ error: "No questions provided" });
-  }
+  try {
 
-  /* -------------------------
-  BUILD WORD DOCUMENT
-  ------------------------- */
-
-  const paragraphs = [];
-
-  questions.forEach((q, index) => {
-
-    paragraphs.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: `Question ${index + 1}: ${q.question}`,
-            bold: true
-          })
-        ]
+    const res = await fetch("/api/download", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        passkey: passkey,
+        questions: quizQuestions
       })
-    );
+    });
 
-    paragraphs.push(
-      new Paragraph(`A. ${q.options.A}`)
-    );
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error || "Download failed");
+      return;
+    }
 
-    paragraphs.push(
-      new Paragraph(`B. ${q.options.B}`)
-    );
+    const blob = await res.blob();
 
-    paragraphs.push(
-      new Paragraph(`C. ${q.options.C}`)
-    );
+    const url = window.URL.createObjectURL(blob);
 
-    paragraphs.push(
-      new Paragraph(`D. ${q.options.D}`)
-    );
+    const a = document.createElement("a");
 
-    paragraphs.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: `Answer: ${q.answer}`,
-            bold: true
-          })
-        ]
-      })
-    );
+    a.href = url;
+    a.download = "literary_theory_questions.docx";
 
-    paragraphs.push(new Paragraph("-----------------------------"));
-  });
+    a.click();
 
-  const doc = new Document({
-    sections: [
-      {
-        children: paragraphs
-      }
-    ]
-  });
+    window.URL.revokeObjectURL(url);
 
-  const buffer = await Packer.toBuffer(doc);
+  } catch (err) {
 
-  /* -------------------------
-  SEND FILE TO USER
-  ------------------------- */
+    console.error(err);
+    alert("Download failed");
 
-  res.setHeader(
-    "Content-Disposition",
-    "attachment; filename=literary_theory_questions.docx"
-  );
+  }
 
-  res.setHeader(
-    "Content-Type",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  );
+});
 
-  return res.send(buffer);
-
-} catch (err) {
-
-  console.error(err);
-
-  return res.status(500).json({
-    error: "Download generation failed"
-  });
-
-}
-
-}
+});
