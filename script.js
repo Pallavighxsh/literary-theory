@@ -1,3 +1,5 @@
+console.log("Quiz script loaded");
+
 let userEmail = null;
 
 const MAX_ATTEMPTS = 5;
@@ -6,9 +8,9 @@ const generateBtn = document.getElementById("generateBtn");
 const downloadBtn = document.getElementById("downloadBtn");
 const output = document.getElementById("output");
 
-downloadBtn.disabled = true;
-
-
+if (downloadBtn) {
+    downloadBtn.disabled = true;
+}
 
 /* --------------------------------------------------
 ATTEMPT TRACKING
@@ -22,53 +24,71 @@ function getTodayKey(email) {
 
 }
 
-
-
 function updateAttemptsDisplay() {
+
+    if (!userEmail) return;
 
     const key = getTodayKey(userEmail);
 
     const attempts = parseInt(localStorage.getItem(key)) || 0;
 
-    document.getElementById("attempts").innerText =
-        `Attempts used today: ${attempts} / ${MAX_ATTEMPTS}`;
+    const attemptsEl = document.getElementById("attempts");
+
+    if (attemptsEl) {
+        attemptsEl.innerText =
+            `Attempts used today: ${attempts} / ${MAX_ATTEMPTS}`;
+    }
 
 }
-
-
 
 /* --------------------------------------------------
 START SESSION
 -------------------------------------------------- */
 
-document.getElementById("startBtn").addEventListener("click", () => {
+const startBtn = document.getElementById("startBtn");
 
-    const emailInput = document.getElementById("email").value.trim();
+if (startBtn) {
 
-    if (!emailInput) {
-        alert("Please enter your email.");
-        return;
-    }
+    startBtn.addEventListener("click", () => {
 
-    userEmail = emailInput;
+        const emailField = document.getElementById("email");
 
-    document.getElementById("signup-section").classList.add("hidden");
+        if (!emailField) return;
 
-    document.getElementById("quiz-section").classList.remove("hidden");
+        const emailInput = emailField.value.trim();
 
-    updateAttemptsDisplay();
+        if (!emailInput) {
+            alert("Please enter your email.");
+            return;
+        }
 
-});
+        userEmail = emailInput;
 
+        const signupSection = document.getElementById("signup-section");
+        const quizSection = document.getElementById("quiz-section");
 
+        if (signupSection) signupSection.classList.add("hidden");
+        if (quizSection) quizSection.classList.remove("hidden");
+
+        updateAttemptsDisplay();
+
+    });
+
+}
 
 /* --------------------------------------------------
 GENERATE QUIZ
 -------------------------------------------------- */
 
+if (generateBtn) {
+
 generateBtn.addEventListener("click", async () => {
 
-    const topic = document.getElementById("topic").value.trim();
+    const topicField = document.getElementById("topic");
+
+    if (!topicField) return;
+
+    const topic = topicField.value.trim();
 
     if (!topic) {
         alert("Please enter a topic.");
@@ -96,13 +116,15 @@ generateBtn.addEventListener("click", async () => {
 
 });
 
-
+}
 
 /* --------------------------------------------------
 CALL BACKEND
 -------------------------------------------------- */
 
 async function generateQuiz(topic) {
+
+    if (!output) return;
 
     output.innerText = "Generating question...";
 
@@ -130,9 +152,13 @@ async function generateQuiz(topic) {
 
         output.innerText = data.question;
 
-        downloadBtn.disabled = false;
+        if (downloadBtn) {
+            downloadBtn.disabled = false;
+        }
 
     } catch (err) {
+
+        console.error(err);
 
         output.innerText = "⚠️ Could not generate question.";
 
@@ -140,17 +166,17 @@ async function generateQuiz(topic) {
 
 }
 
-
-
 /* --------------------------------------------------
 DOWNLOAD BUTTON
 -------------------------------------------------- */
+
+if (downloadBtn) {
 
 downloadBtn.addEventListener("click", () => {
 
     const savedEmail = localStorage.getItem("hotseat_email");
 
-    const question = output.innerText;
+    const question = output ? output.innerText : "";
 
     if (!question || question.length < 20) {
         alert("Generate a question first.");
@@ -163,35 +189,41 @@ downloadBtn.addEventListener("click", () => {
 
     } else {
 
-        document.getElementById("email-popup").classList.remove("hidden");
+        const popup = document.getElementById("email-popup");
+
+        if (popup) popup.classList.remove("hidden");
 
     }
 
 });
 
-
+}
 
 /* --------------------------------------------------
 EMAIL SUBMISSION
 -------------------------------------------------- */
 
-document.getElementById("submitEmail").addEventListener("click", async () => {
+const submitEmailBtn = document.getElementById("submitEmail");
 
-    const email = document.getElementById("downloadEmail").value.trim();
+if (submitEmailBtn) {
 
-    const question = output.innerText;
+submitEmailBtn.addEventListener("click", async () => {
+
+    const emailField = document.getElementById("downloadEmail");
+
+    if (!emailField) return;
+
+    const email = emailField.value.trim();
+    const question = output ? output.innerText : "";
 
     if (!email) {
-
         alert("Please enter your email.");
-
         return;
-
     }
 
     try {
 
-        await fetch("https://literary-theory.vercel.app/api/capture-email", {
+        await fetch("/api/capture-email", {
 
             method: "POST",
 
@@ -200,30 +232,34 @@ document.getElementById("submitEmail").addEventListener("click", async () => {
             },
 
             body: JSON.stringify({
-                email,
-                question
+                email: email,
+                question: question
             })
 
         });
 
+        console.log("Email captured successfully");
+
     } catch (err) {
 
-        console.log("Email capture failed");
+        console.error("Email capture failed", err);
 
     }
 
+    /* store email locally */
     localStorage.setItem("hotseat_email", email);
 
     userEmail = email;
 
     downloadQuestion(question);
 
-    document.getElementById("email-popup").classList.add("hidden");
+    const popup = document.getElementById("email-popup");
+
+    if (popup) popup.classList.add("hidden");
 
 });
 
-
-
+}
 /* --------------------------------------------------
 DOWNLOAD FILE
 -------------------------------------------------- */
@@ -248,16 +284,16 @@ function downloadQuestion(text) {
 
 }
 
-
-
 /* --------------------------------------------------
 LIMIT SCREEN
 -------------------------------------------------- */
 
 function showLimitReached() {
 
-    document.getElementById("quiz-section").classList.add("hidden");
+    const quizSection = document.getElementById("quiz-section");
+    const limitSection = document.getElementById("limit-section");
 
-    document.getElementById("limit-section").classList.remove("hidden");
+    if (quizSection) quizSection.classList.add("hidden");
+    if (limitSection) limitSection.classList.remove("hidden");
 
 }
