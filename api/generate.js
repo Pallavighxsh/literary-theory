@@ -235,7 +235,7 @@ GENERATE QUESTIONS
 async function generateBatch(topic,context){
 
   const prompt = `
-Generate exactly 10 multiple choice questions.
+Generate exactly 5 multiple choice questions.
 
 Topic: ${topic}
 
@@ -343,7 +343,7 @@ export default async function handler(req,res){
     if(!topicSessions[topic]){
       topicSessions[topic] = {
         count:0,
-        max:10
+        max:5
       };
     }
 
@@ -429,7 +429,7 @@ export default async function handler(req,res){
       answer:q.answer,
 
       progress:topicSessions[topic].count,
-      remaining:10-topicSessions[topic].count,
+      remaining:5-topicSessions[topic].count,
 
       canNext:false
 
