@@ -60,19 +60,11 @@ const HUMANITIES_SOURCES = [
 
 /* Stanford Encyclopedia */
 
-"https://plato.stanford.edu/entries/hermeneutics/",
-"https://plato.stanford.edu/entries/derrida/",
-"https://plato.stanford.edu/entries/structuralism/",
-"https://plato.stanford.edu/entries/postmodernism/",
-"https://plato.stanford.edu/entries/aesthetics/",
+"https://plato.stanford.edu/
 
 /* Internet Encyclopedia */
 
-"https://iep.utm.edu/deconstruction/",
-"https://iep.utm.edu/hermeneutics/",
-"https://iep.utm.edu/critical-theory/",
-"https://iep.utm.edu/poststructuralism/",
-"https://iep.utm.edu/literary-theory/",
+"https://iep.utm.edu/
 
 /* Britannica */
 
