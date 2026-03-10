@@ -46,7 +46,7 @@ loading = true;
 /* messaging */
 
 if(!quizStarted){
-status.innerText = "Generating questions...";
+.innerText = "Generating questions...";
 }else{
 status.innerText = "Loading next question...";
 }
@@ -102,7 +102,8 @@ saveQuestion(data);
 
 /* progress */
 
-status.innerText = `Question ${data.progress} of ${MAX_QUESTIONS}`;
+status.innerText =
+`Question ${data.progress} of ${MAX_QUESTIONS} • complete quiz to generate another`;
 
 quizStarted = true;
 
