@@ -2,39 +2,129 @@ import axios from "axios";
 import { load } from "cheerio";
 import Groq from "groq-sdk";
 
+/* --------------------------------
+GROQ CLIENT
+-------------------------------- */
+
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
 });
 
-/* -------------------------------
+/* --------------------------------
 CACHE STORE
---------------------------------*/
+-------------------------------- */
 
 const questionCache = {};
+const topicSessions = {};
 
-/* -------------------------------
-SOURCE POOLS
---------------------------------*/
+/* --------------------------------
+KNOWN TOPICS FOR AUTOCORRECT
+-------------------------------- */
 
-const SEP_PAGES = [
+const KNOWN_TOPICS = [
+"structuralism",
+"poststructuralism",
+"deconstruction",
+"hermeneutics",
+"postmodernism",
+"feminist theory",
+"marxist criticism",
+"reader response theory",
+"semiotics",
+"narratology",
+"critical theory"
+];
+
+/* --------------------------------
+STOPWORDS FOR KEYWORDS
+-------------------------------- */
+
+const STOPWORDS = [
+"stanford",
+"internet",
+"philosophy",
+"university",
+"article",
+"introduction",
+"encyclopedia",
+"entries",
+"entry",
+"britannica"
+];
+
+/* --------------------------------
+SOURCE POOL
+-------------------------------- */
+
+const HUMANITIES_SOURCES = [
+
+/* Stanford Encyclopedia */
+
 "https://plato.stanford.edu/entries/hermeneutics/",
 "https://plato.stanford.edu/entries/derrida/",
 "https://plato.stanford.edu/entries/structuralism/",
 "https://plato.stanford.edu/entries/postmodernism/",
-"https://plato.stanford.edu/entries/aesthetics/"
-];
+"https://plato.stanford.edu/entries/aesthetics/",
 
-const IEP_PAGES = [
+/* Internet Encyclopedia */
+
 "https://iep.utm.edu/deconstruction/",
 "https://iep.utm.edu/hermeneutics/",
 "https://iep.utm.edu/critical-theory/",
 "https://iep.utm.edu/poststructuralism/",
-"https://iep.utm.edu/literary-theory/"
+"https://iep.utm.edu/literary-theory/",
+
+/* Britannica */
+
+"https://www.britannica.com/topic/postmodernism",
+"https://www.britannica.com/topic/literary-criticism",
+
+/* Marxists Internet Archive */
+
+"https://www.marxists.org/archive/gramsci/",
+"https://www.marxists.org/archive/lukacs/"
+
 ];
 
-/* -------------------------------
-SCRAPE INTRO
---------------------------------*/
+/* --------------------------------
+NORMALIZE TOPIC
+-------------------------------- */
+
+function normalizeTopic(topic){
+
+  return topic
+    .toLowerCase()
+    .trim()
+    .replace(/literary/g,"")
+    .replace(/theory/g,"")
+    .replace(/\s+/g," ")
+    .trim();
+
+}
+
+/* --------------------------------
+SIMPLE AUTOCORRECT
+-------------------------------- */
+
+function autocorrectTopic(topic){
+
+  const words = topic.split(" ");
+
+  for(const known of KNOWN_TOPICS){
+
+    if(topic.includes(known)){
+      return known;
+    }
+
+  }
+
+  return topic;
+
+}
+
+/* --------------------------------
+SCRAPE INTRO TEXT
+-------------------------------- */
 
 async function scrapeIntro(url){
 
@@ -66,29 +156,21 @@ async function scrapeIntro(url){
   }catch(err){
 
     console.log("Scrape failed:",url);
-    console.log(err);
-
     return null;
 
   }
 
 }
 
-/* -------------------------------
-RANDOM CONTEXT
---------------------------------*/
+/* --------------------------------
+GET RANDOM CONTEXT
+-------------------------------- */
 
 async function getRandomContext(){
 
-  const pools = { SEP:SEP_PAGES, IEP:IEP_PAGES };
-
-  const siteNames = Object.keys(pools);
-
-  const site = siteNames[Math.floor(Math.random()*siteNames.length)];
-
-  const pages = pools[site];
-
-  const url = pages[Math.floor(Math.random()*pages.length)];
+  const url = HUMANITIES_SOURCES[
+    Math.floor(Math.random()*HUMANITIES_SOURCES.length)
+  ];
 
   const text = await scrapeIntro(url);
 
@@ -96,19 +178,18 @@ async function getRandomContext(){
 
     return {
       text:"Literary theory studies how meaning is produced in texts and how readers interpret literature.",
-      site:"fallback",
-      url:"none"
+      url:"fallback"
     };
 
   }
 
-  return { text, site, url };
+  return { text, url };
 
 }
 
-/* -------------------------------
+/* --------------------------------
 KEYWORD EXTRACTION
---------------------------------*/
+-------------------------------- */
 
 function extractKeywords(context){
 
@@ -116,22 +197,32 @@ function extractKeywords(context){
 
   const anchor = sentences.slice(0,2).join(". ").trim();
 
-  const matches = context.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g);
+  const words = context
+    .toLowerCase()
+    .match(/\b[a-z]{6,}\b/g);
 
-  if(!matches) return { anchor, keywords:[] };
+  if(!words){
 
-  const unique = [...new Set(matches)];
+    return { anchor, keywords:[] };
+
+  }
+
+  const unique = [...new Set(words)];
+
+  const filtered = unique.filter(w => !STOPWORDS.includes(w));
 
   return {
+
     anchor,
-    keywords: unique.slice(0,5)
+    keywords: filtered.slice(0,5)
+
   };
 
 }
 
-/* -------------------------------
+/* --------------------------------
 SAFE JSON PARSE
---------------------------------*/
+-------------------------------- */
 
 function safeJSON(text){
 
@@ -147,20 +238,20 @@ function safeJSON(text){
   }catch(err){
 
     console.log("JSON parse failed");
-
     return [];
 
   }
 
 }
 
-/* -------------------------------
-BATCH GENERATION
---------------------------------*/
+/* --------------------------------
+GENERATE BATCH (10 QUESTIONS)
+-------------------------------- */
 
 async function generateBatch(topic,anchor,keyword){
 
   const prompt = `
+
 Generate 10 multiple choice questions.
 
 Topic: ${topic}
@@ -188,6 +279,7 @@ Format:
 "answer":"A"
 }
 ]
+
 `;
 
   const completion = await groq.chat.completions.create({
@@ -195,6 +287,7 @@ Format:
     model:"llama-3.1-8b-instant",
     temperature:0.2,
     max_tokens:1200,
+
     messages:[
       { role:"user", content:prompt }
     ]
@@ -209,9 +302,9 @@ Format:
 
 }
 
-/* -------------------------------
-MAIN HANDLER
---------------------------------*/
+/* --------------------------------
+MAIN API HANDLER
+-------------------------------- */
 
 export default async function handler(req,res){
 
@@ -223,7 +316,7 @@ export default async function handler(req,res){
 
   try{
 
-    const { topic, seen=[] } = req.body;
+    let { topic, seen=[] } = req.body;
 
     if(!topic){
 
@@ -231,13 +324,42 @@ export default async function handler(req,res){
 
     }
 
+    /* Normalize topic */
+
+    topic = normalizeTopic(topic);
+
+    topic = autocorrectTopic(topic);
+
+    /* Create topic cache */
+
     if(!questionCache[topic]){
 
       questionCache[topic] = [];
 
     }
 
-    /* GENERATE NEW BATCH IF CACHE LOW */
+    /* Start session if not existing */
+
+    if(!topicSessions[topic]){
+
+      topicSessions[topic] = {
+        count:0,
+        max:10
+      };
+
+    }
+
+    /* Lock topic if session complete */
+
+    if(topicSessions[topic].count >= 10){
+
+      return res.json({
+        finished:true
+      });
+
+    }
+
+    /* Generate batch if cache low */
 
     if(questionCache[topic].length < 3){
 
@@ -257,11 +379,24 @@ export default async function handler(req,res){
 
       questionCache[topic].push(...batch);
 
+      /* Limit cache size */
+
+      if(questionCache[topic].length > 50){
+
+        questionCache[topic] =
+          questionCache[topic].slice(-50);
+
+      }
+
     }
 
-    /* FILTER SEEN QUESTIONS */
+    /* Filter seen */
 
-    let filtered = questionCache[topic].filter(q => !seen.includes(q.id));
+    let filtered = questionCache[topic].filter(
+      q => !seen.includes(q.id)
+    );
+
+    /* If empty generate again */
 
     if(filtered.length === 0){
 
@@ -274,29 +409,48 @@ export default async function handler(req,res){
       const batch = await generateBatch(topic,anchor,keyword);
 
       batch.forEach((q,i)=>{
+
         q.id = `${topic}_${Date.now()}_${i}`;
+
       });
 
       questionCache[topic].push(...batch);
 
-      filtered = questionCache[topic].filter(q => !seen.includes(q.id));
+      filtered = questionCache[topic].filter(
+        q => !seen.includes(q.id)
+      );
 
     }
 
-    const q = filtered[Math.floor(Math.random()*filtered.length)];
+    /* Pick random */
+
+    const q = filtered[
+      Math.floor(Math.random()*filtered.length)
+    ];
+
+    /* Update session */
+
+    topicSessions[topic].count++;
 
     return res.json({
+
       id:q.id,
       question:q.question,
       options:q.options,
-      answer:q.answer
+      answer:q.answer,
+
+      progress:topicSessions[topic].count,
+      remaining:10-topicSessions[topic].count
+
     });
 
   }catch(err){
 
     console.log("SERVER ERROR:",err);
 
-    return res.status(500).json({ error:"Generation failed" });
+    return res.status(500).json({
+      error:"Generation failed"
+    });
 
   }
 
