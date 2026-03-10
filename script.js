@@ -3,8 +3,11 @@ document.addEventListener("DOMContentLoaded", () => {
 console.log("Quiz script loaded");
 
 let userEmail = null;
-
 let seenIds = [];
+
+let quizStarted = false;
+let questionsSeen = 0;
+const MAX_QUESTIONS = 10;
 
 /* ELEMENTS */
 
@@ -66,14 +69,22 @@ async function getQuestion(){
 const topic = topicField.value.trim();
 
 if(!topic){
-
 alert("Enter a topic");
-
 return;
-
 }
 
-status.innerText = "Generating question...";
+/* messaging */
+
+if(!quizStarted){
+status.innerText = "Generating questions...";
+}else{
+status.innerText = "Loading next question...";
+}
+
+/* disable buttons while loading */
+
+generateBtn.disabled = true;
+nextBtn.disabled = true;
 
 try{
 
@@ -94,9 +105,16 @@ seen:seenIds
 
 const data = await res.json();
 
-if(data.complete){
+/* topic finished */
 
-status.innerText = data.message;
+if(data.finished){
+
+status.innerText = "✅ Topic complete. Enter a new topic.";
+
+quizStarted = false;
+
+generateBtn.disabled = false;
+nextBtn.disabled = true;
 
 return;
 
@@ -104,17 +122,43 @@ return;
 
 seenIds.push(data.id);
 
+questionsSeen = data.progress;
+
 renderQuestion(data);
 
 saveQuestion(data);
 
-status.innerText = "";
+/* progress message */
+
+status.innerText = `Question ${data.progress} of 10`;
+
+quizStarted = true;
+
+/* enable next if remaining */
+
+if(data.remaining > 0){
+
+nextBtn.disabled = false;
+
+}else{
+
+nextBtn.disabled = true;
+
+status.innerText = "✅ You finished all 10 questions. Enter a new topic.";
+
+quizStarted = false;
+generateBtn.disabled = false;
+
+}
 
 }catch(err){
 
 console.error(err);
 
 status.innerText = "⚠️ Generation failed.";
+
+generateBtn.disabled = false;
+nextBtn.disabled = false;
 
 }
 
@@ -148,7 +192,7 @@ optionsList.appendChild(li);
 
 });
 
-/* set answer */
+/* answer hidden */
 
 answerText.innerText = "Answer: " + q.answer;
 
@@ -178,7 +222,19 @@ if(generateBtn){
 
 generateBtn.addEventListener("click",()=>{
 
-seenIds = []; // reset when new topic started
+/* prevent new topic if unfinished */
+
+if(quizStarted && questionsSeen < MAX_QUESTIONS){
+
+alert("Please finish all 10 questions before starting a new topic.");
+
+return;
+
+}
+
+seenIds = [];
+questionsSeen = 0;
+quizStarted = false;
 
 getQuestion();
 
@@ -263,7 +319,6 @@ const history = JSON.parse(localStorage.getItem(key)) || [];
 if(history.length === 0){
 
 alert("No questions yet");
-
 return;
 
 }
@@ -290,7 +345,6 @@ const url = URL.createObjectURL(blob);
 const a = document.createElement("a");
 
 a.href = url;
-
 a.download = "literary_theory_questions.txt";
 
 document.body.appendChild(a);
