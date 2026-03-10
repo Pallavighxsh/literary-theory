@@ -6,7 +6,9 @@ let seenIds = [];
 
 let quizStarted = false;
 let questionsSeen = 0;
-const MAX_QUESTIONS = 10;
+const MAX_QUESTIONS = 5;
+
+let loading = false;
 
 /* ELEMENTS */
 
@@ -30,12 +32,16 @@ FETCH QUESTION
 
 async function getQuestion(){
 
+if(loading) return;
+
 const topic = topicField.value.trim();
 
 if(!topic){
-alert("Enter a topic");
+alert("Enter a topic to start the quiz.");
 return;
 }
+
+loading = true;
 
 /* messaging */
 
@@ -80,6 +86,8 @@ quizStarted = false;
 generateBtn.disabled = false;
 nextBtn.disabled = true;
 
+loading = false;
+
 return;
 
 }
@@ -92,9 +100,9 @@ renderQuestion(data);
 
 saveQuestion(data);
 
-/* progress message */
+/* progress */
 
-status.innerText = `Question ${data.progress} of 10`;
+status.innerText = `Question ${data.progress} of ${MAX_QUESTIONS}`;
 
 quizStarted = true;
 
@@ -108,7 +116,8 @@ nextBtn.disabled = false;
 
 nextBtn.disabled = true;
 
-status.innerText = "✅ You finished all 10 questions. You may download them.";
+status.innerText =
+"✅ You completed all 5 questions. You may download them.";
 
 quizStarted = false;
 generateBtn.disabled = false;
@@ -119,12 +128,15 @@ generateBtn.disabled = false;
 
 console.error(err);
 
-status.innerText = "⚠️ Generation failed.";
+status.innerText =
+"⚠️ Question generation failed. Please try again.";
 
 generateBtn.disabled = false;
 nextBtn.disabled = false;
 
 }
+
+loading = false;
 
 }
 
@@ -156,7 +168,7 @@ optionsList.appendChild(li);
 
 });
 
-/* answer hidden */
+/* hide answer each time */
 
 answerText.innerText = "Answer: " + q.answer;
 
@@ -186,25 +198,30 @@ if(generateBtn){
 
 generateBtn.addEventListener("click",()=>{
 
-/* prevent new topic if unfinished */
+/* block topic switching mid quiz */
 
 if(quizStarted && questionsSeen < MAX_QUESTIONS){
 
-alert("Please finish all 10 questions before starting a new topic.");
+status.innerText =
+"Finish all 5 questions before starting a new topic.";
+
+alert(
+"You already started a quiz.\n\nFinish all 5 questions before generating a new topic."
+);
 
 return;
 
 }
 
-/* reset */
+/* reset quiz */
 
 seenIds = [];
 questionsSeen = 0;
 quizStarted = false;
 
-/* clear stored questions */
-
 localStorage.removeItem("quiz_history");
+
+quiz.classList.add("hidden");
 
 getQuestion();
 
@@ -215,6 +232,8 @@ getQuestion();
 if(nextBtn){
 
 nextBtn.addEventListener("click",()=>{
+
+if(loading) return;
 
 getQuestion();
 
@@ -252,13 +271,13 @@ const history = JSON.parse(localStorage.getItem(key)) || [];
 
 container.innerHTML = "";
 
-history.forEach(q=>{
+history.forEach((q,i)=>{
 
 const div = document.createElement("div");
 
 div.className = "history-item";
 
-div.innerText = q.question;
+div.innerText = `${i+1}. ${q.question}`;
 
 container.appendChild(div);
 
@@ -278,9 +297,9 @@ downloadAllBtn.addEventListener("click", async ()=>{
 
 const history = JSON.parse(localStorage.getItem("quiz_history")) || [];
 
-if(history.length < 10){
+if(history.length < MAX_QUESTIONS){
 
-alert("You must complete all 10 questions before downloading.");
+alert("You must complete all 5 questions before downloading.");
 
 return;
 
@@ -302,7 +321,7 @@ headers:{
 
 body:JSON.stringify({
 passkey:passkey,
-questions:history.slice(-10)
+questions:history.slice(-MAX_QUESTIONS)
 })
 
 });
@@ -343,7 +362,7 @@ alert("Download failed");
 
 }
 
-/* load history on page load */
+/* load history */
 
 renderHistory();
 
