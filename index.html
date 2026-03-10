@@ -32,7 +32,7 @@
 <nav class="menu">
 
 <a href="https://www.phindia.com/Books/BookDetail/9789354439858/74-TOPICS-IN-LITERARY-THEORY-PHI">
-Browse The Book
+About The Book
 </a>
 
 <a href="https://www.phindia.com">
@@ -43,8 +43,8 @@ Our Website
 About Us
 </a>
 
-<a href="https://www.phindia.com/PHILearningBlog/">
-PHI Learning Blog
+<a href="mailto:pallavighosh@phindia.com?subject=Literary%20Theory%20Quiz%20Inquiry&body=Hello%20PHI%20Learning,%0A%0AI%20would%20like%20to%20know%20more%20about%20the%20book%20or%20quiz.%0A%0ARegards,">
+Get in Touch
 </a>
 
 </nav>
@@ -62,7 +62,7 @@ PHI Learning Blog
 <img src="assets/book_cover.png" class="book">
 
 <div class="thought-bubble">
-An experimental classroom engagement tool developed by PHI Learning.
+The download quiz passkey is available upon bulk order of this book!
 </div>
 
 </div>
@@ -73,23 +73,34 @@ An experimental classroom engagement tool developed by PHI Learning.
 
 <p class="book-desc">
 
-74 Topics in Literary Theory offers a clear and structured introduction to
-the major schools of thought that have shaped literary studies. <br><br>
+A structured introduction to 74 major schools of thought, delivered in a simple but sleek style. <br><br>
 
 From foundational movements such as Structuralism and Formalism to
-later developments including Poststructuralism, Feminist Theory,
+later developments, including Poststructuralism, Feminist Theory,
 Postcolonial Studies, Ecocriticism, and Digital Humanities, the book
-provides concise explanations of key concepts that continue to influence
-how we read and interpret literature today. <br><br>
+provides concise explanations of 74 key concepts. <br><br>
 
-Click "about the book" in the menu bar above to find out which 74 topics are in the book.
+Click here to see which 74 topics are in the book: <br>
+    <div class="book-link">
+
+<a 
+href="https://www.phindia.com/Books/BookDetail/9789354439858/74-TOPICS-IN-LITERARY-THEORY-PHI"
+target="_blank"
+rel="noopener">
+
+<button class="browse-book-btn">
+Learn More
+</button>
+
+</a>
+
+</div>
 
 </p>
 
 <div class="adoption">
 
-Instructor resources—including lecture-ready PowerPoint slides and the
-full PHI Learning Quiz App for classroom engagement—are available
+Lecture-ready PowerPoint slides and the full PHI Learning Quiz App are available
 to institutions that adopt the book for teaching.
 
 </div>
@@ -133,6 +144,7 @@ Generate Question
     <button id="nextQuestion" class="primary-btn" style="border:1px solid #444; padding:10px 18px;">
         Next Question →
     </button>
+    <p id="quizEndMessage" class="quiz-end-message"></p>
 
 </div>
 
@@ -147,34 +159,31 @@ Generate Question
 
 <section class="download-section">
 
-<div class="card download-card">
+  <div class="card download-card">
 
-<h3 class="download-title">
-Download Questions
-</h3>
+    <h3 class="download-title">
+      Download Questions
+    </h3>
 
-<p class="download-text">
+    <p class="download-text">
+      Enter the passkey to download this quiz.<br>
+      Passkey available upon bulk purchase of the book. Just email pallavighosh@phindia.com with your order number.
+    </p>
 
-Enter your email to download this quiz question and receive occasional
-updates about new literary theory titles, teaching resources,
-and digital learning tools from PHI Learning.
+    <div class="download-form">
 
-</p>
+      <input
+        type="password"
+        id="downloadPasskey"
+        placeholder="Enter passkey">
 
-<div class="download-form">
+      <button id="submitPasskey">
+        Download Questions
+      </button>
 
-<input
-type="email"
-id="downloadEmail"
-placeholder="Your email">
+    </div>
 
-<button id="submitEmail">
-Download Questions
-</button>
-
-</div>
-
-</div>
+  </div>
 
 </section>
 
@@ -227,7 +236,7 @@ This AI-powered quiz app has been developed by PHI Learning. Please contact us f
 <h4>Contact Us</h4>
 
 <p>
-Have questions about adopting 74 Topics in Literary Theory or about the PHI Learning Quiz App?
+How can we help?
 Send us a message and our team will be happy to assist.
 </p>
 
