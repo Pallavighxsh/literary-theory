@@ -125,9 +125,7 @@ async function fetchContext(){
           Math.floor(Math.random()*CONTEXT_SOURCES.length)
         ];
 
-      const startPage = source.base;
-
-      const res = await axios.get(startPage,{
+      const res = await axios.get(source.base,{
         timeout:8000,
         headers:{ "User-Agent":"Mozilla/5.0" }
       });
@@ -141,7 +139,6 @@ async function fetchContext(){
         const href = $(el).attr("href");
 
         if(!href) return;
-
         if(href.includes(":")) return;
 
         const url = href.startsWith("http")
@@ -197,30 +194,23 @@ async function fetchContext(){
 }
 
 /* --------------------------------
-SAFE JSON PARSER
+SAFE JSON PARSER (MINIMAL)
 -------------------------------- */
 
 function safeJSON(text){
 
   try{
 
-    const match = text.match(/\[[\s\S]*\]/);
+    const start = text.indexOf("[");
+    const end = text.lastIndexOf("]");
 
-    if(!match) return [];
+    if(start === -1 || end === -1) return [];
 
-    const parsed = JSON.parse(match[0]);
+    const parsed = JSON.parse(text.slice(start,end+1));
 
-    if(!Array.isArray(parsed)) return [];
+    return Array.isArray(parsed) ? parsed : [];
 
-    return parsed.filter(q =>
-      q.question &&
-      q.options &&
-      q.answer
-    );
-
-  }catch(err){
-
-    console.log("JSON parse failed");
+  }catch{
 
     return [];
 
@@ -246,8 +236,7 @@ Rules:
 - 4 options labelled A B C D
 - Only one correct answer
 - Return ONLY valid JSON
-- Do NOT include commentary
-- Do NOT include explanations
+- No explanations
 
 Format:
 
@@ -266,33 +255,39 @@ Format:
 ]
 `;
 
-  try{
+  for(let attempt=0; attempt<2; attempt++){
 
-    const completion = await groq.chat.completions.create({
+    try{
 
-      model:"llama-3.1-8b-instant",
-      temperature:0.2,
-      max_tokens:900,
+      const completion = await groq.chat.completions.create({
 
-      messages:[
-        { role:"user", content:prompt }
-      ]
+        model:"llama-3.1-8b-instant",
+        temperature:0.2,
+        max_tokens:600,
 
-    });
+        messages:[
+          { role:"user", content:prompt }
+        ]
 
-    const raw = completion.choices[0].message.content;
+      });
 
-    console.log("Groq output preview:", raw.slice(0,150));
+      const raw = completion.choices[0].message.content;
 
-    return safeJSON(raw);
+      console.log("Groq preview:", raw.slice(0,120));
 
-  }catch(err){
+      const parsed = safeJSON(raw);
 
-    console.log("Groq generation failed");
+      if(parsed.length) return parsed;
 
-    return [];
+    }catch(err){
+
+      console.log("Groq generation failed");
+
+    }
 
   }
+
+  return [];
 
 }
 
@@ -347,7 +342,7 @@ export default async function handler(req,res){
       };
     }
 
-    if(topicSessions[topic].count >= 10){
+    if(topicSessions[topic].count >= 5){
       return res.json({ finished:true });
     }
 
@@ -359,7 +354,7 @@ export default async function handler(req,res){
 
     /* GENERATE QUESTIONS IF CACHE LOW */
 
-    if(questionCache[topic].length < 5){
+    if(questionCache[topic].length < 3){
 
       const context = await fetchContext();
 
@@ -369,9 +364,9 @@ export default async function handler(req,res){
 
         batch.forEach((q,i)=>{
 
-          if(!q.question || !q.options || !q.answer) return;
-
-          q.id = `${topic}_${Date.now()}_${i}`;
+          q.id = `${topic}_${Date.now()}_${i}_${Math.random()
+            .toString(36)
+            .slice(2,6)}`;
 
           questionCache[topic].push(q);
 
@@ -389,7 +384,7 @@ export default async function handler(req,res){
 
     if(!q){
 
-      console.log("Retrying generation...");
+      console.log("Retrying generation");
 
       const context = await fetchContext();
 
@@ -399,7 +394,9 @@ export default async function handler(req,res){
 
         batch.forEach((item,i)=>{
 
-          item.id = `${topic}_${Date.now()}_${i}`;
+          item.id = `${topic}_${Date.now()}_${i}_${Math.random()
+            .toString(36)
+            .slice(2,6)}`;
 
           questionCache[topic].push(item);
 
