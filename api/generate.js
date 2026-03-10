@@ -1,5 +1,5 @@
 import axios from "axios";
-import * as cheerio from "cheerio";
+import { load } from "cheerio";
 import Groq from "groq-sdk";
 
 const groq = new Groq({
@@ -46,7 +46,7 @@ const response = await axios.get(url,{
   headers:{ "User-Agent":"Mozilla/5.0" }
 });
 
-const $ = cheerio.load(response.data);
+const $ = load(response.data);
 
 const p = $("p").first().text().trim();
 
