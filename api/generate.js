@@ -60,11 +60,11 @@ const HUMANITIES_SOURCES = [
 
 /* Stanford Encyclopedia */
 
-"https://plato.stanford.edu/
+"https://plato.stanford.edu/"
 
 /* Internet Encyclopedia */
 
-"https://iep.utm.edu/
+"https://iep.utm.edu/"
 
 /* Britannica */
 
