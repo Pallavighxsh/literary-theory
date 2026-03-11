@@ -71,7 +71,31 @@ console.log("Existing email:",email);
 
 /* format questions */
 
-const message = formatQuestions(questions);
+const message = `
+Dear Literary Scholar,
+
+Thank you for using the Literary Theory Quiz Generator.
+
+Explore the ideas behind the quiz in the book *74 Topics in Literary Theory*, available here:
+https://phindia.com/Books/BookDetail/9788120352850/74-Topics-in-Literary-Theory
+
+The book offers concise introductions to major concepts and thinkers in literary theory. Institutions adopting the book through bulk purchase can enable direct student access to the quiz generator without requiring email entry for every download.
+
+HERE ARE YOUR QUIZ QUESTIONS
+--------------------------------------------------
+
+${formatQuestions(questions)}
+
+--------------------------------------------------
+
+Please do not hesitate to reply to this email if you have any questions.
+
+Best wishes,  
+
+Pallavi Ghosh  
+Brand Strategist  
+PHI Learning
+`;
 
 /* send email */
 
