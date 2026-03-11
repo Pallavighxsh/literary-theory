@@ -16,7 +16,6 @@ CACHE
 
 const questionCache = {};
 const topicSessions = {};
-const generationLocks = {};
 
 /* --------------------------------
 KNOWN TOPICS
@@ -51,9 +50,31 @@ SCRAPE SOURCES
 -------------------------------- */
 
 const CONTEXT_SOURCES = [
-{ name:"stanford", base:"https://plato.stanford.edu" },
-{ name:"iep", base:"https://iep.utm.edu" },
-{ name:"britannica", base:"https://www.britannica.com" }
+
+{
+name:"stanford",
+base:"https://plato.stanford.edu",
+linkSelector:"a[href^='/entries/']"
+},
+
+{
+name:"iep",
+base:"https://iep.utm.edu",
+linkSelector:"a[href^='https://iep.utm.edu/']"
+},
+
+{
+name:"britannica",
+base:"https://www.britannica.com",
+linkSelector:"a[href^='/topic/']"
+},
+
+{
+name:"wikipedia",
+base:"https://en.wikipedia.org/wiki/Philosophy",
+linkSelector:"a[href^='/wiki/']"
+}
+
 ];
 
 /* --------------------------------
@@ -90,12 +111,12 @@ function autocorrectTopic(topic){
 }
 
 /* --------------------------------
-FETCH CONTEXT
+FETCH RANDOM ARTICLE CONTEXT
 -------------------------------- */
 
 async function fetchContext(){
 
-  for(let attempt=0; attempt<5; attempt++){
+  for(let attempt=0; attempt<6; attempt++){
 
     try{
 
@@ -104,32 +125,36 @@ async function fetchContext(){
           Math.floor(Math.random()*CONTEXT_SOURCES.length)
         ];
 
-      const homepage = await axios.get(source.base,{
+      const res = await axios.get(source.base,{
         timeout:8000,
         headers:{ "User-Agent":"Mozilla/5.0" }
       });
 
-      const $ = cheerio.load(homepage.data);
+      const $ = cheerio.load(res.data);
 
       const links = [];
 
-      $("a").each((i,el)=>{
+      $(source.linkSelector).each((i,el)=>{
 
         const href = $(el).attr("href");
 
         if(!href) return;
-        if(!href.startsWith("/")) return;
+        if(href.includes(":")) return;
 
-        links.push(source.base + href);
+        const url = href.startsWith("http")
+          ? href
+          : source.base + href;
+
+        links.push(url);
 
       });
 
       if(!links.length) continue;
 
-      const randomPage =
+      const randomLink =
         links[Math.floor(Math.random()*links.length)];
 
-      const page = await axios.get(randomPage,{
+      const page = await axios.get(randomLink,{
         timeout:8000,
         headers:{ "User-Agent":"Mozilla/5.0" }
       });
@@ -146,8 +171,14 @@ async function fetchContext(){
 
       });
 
-      if(text.length > 400){
-        return text.slice(0,1200);
+      const wordCount = text.split(/\s+/).length;
+
+      if(wordCount > 400){
+
+        console.log("Context found:",source.name,wordCount);
+
+        return text.slice(0,2000);
+
       }
 
     }catch(err){
@@ -163,29 +194,23 @@ async function fetchContext(){
 }
 
 /* --------------------------------
-SAFE JSON PARSER
+SAFE JSON PARSER (MINIMAL)
 -------------------------------- */
 
 function safeJSON(text){
 
   try{
 
-    text = text
-      .replace(/```json/g,"")
-      .replace(/```/g,"")
-      .trim();
+    const start = text.indexOf("[");
+    const end = text.lastIndexOf("]");
 
-    const match = text.match(/\[[\s\S]*\]/);
+    if(start === -1 || end === -1) return [];
 
-    if(!match) return [];
-
-    const parsed = JSON.parse(match[0]);
+    const parsed = JSON.parse(text.slice(start,end+1));
 
     return Array.isArray(parsed) ? parsed : [];
 
-  }catch(err){
-
-    console.log("JSON parse failed:", err);
+  }catch{
 
     return [];
 
@@ -199,8 +224,8 @@ GENERATE QUESTIONS
 
 async function generateBatch(topic,context){
 
-const prompt = `
-Generate EXACTLY 5 multiple choice questions.
+  const prompt = `
+Generate exactly 5 multiple choice questions.
 
 Topic: ${topic}
 
@@ -208,41 +233,61 @@ Context:
 ${context}
 
 Rules:
-- Each question must have 4 options labelled A B C D
+- 4 options labelled A B C D
 - Only one correct answer
 - Return ONLY valid JSON
 - No explanations
-- No text outside JSON
-- Must contain EXACTLY 5 objects
+
+Format:
+
+[
+{
+"id":"1",
+"question":"text",
+"options":{
+"A":"option",
+"B":"option",
+"C":"option",
+"D":"option"
+},
+"answer":"A"
+}
+]
 `;
 
-try{
+  for(let attempt=0; attempt<2; attempt++){
 
-const completion = await groq.chat.completions.create({
+    try{
 
-model:"llama-3.1-8b-instant",
-temperature:0.2,
-max_tokens:350,
+      const completion = await groq.chat.completions.create({
 
-messages:[
-{ role:"user", content:prompt }
-]
+        model:"llama-3.1-8b-instant",
+        temperature:0.2,
+        max_tokens:600,
 
-});
+        messages:[
+          { role:"user", content:prompt }
+        ]
 
-const raw = completion.choices?.[0]?.message?.content || "";
+      });
 
-console.log("Groq preview:", raw.slice(0,120));
+      const raw = completion.choices[0].message.content;
 
-return safeJSON(raw);
+      console.log("Groq preview:", raw.slice(0,120));
 
-}catch(err){
+      const parsed = safeJSON(raw);
 
-console.log("Groq generation failed:", err.message);
+      if(parsed.length) return parsed;
 
-return [];
+    }catch(err){
 
-}
+      console.log("Groq generation failed");
+
+    }
+
+  }
+
+  return [];
 
 }
 
@@ -277,19 +322,9 @@ export default async function handler(req,res){
 
   try{
 
-    let body={};
+    let { topic, seen=[] } = req.body;
 
-    try{
-      body = typeof req.body === "string"
-        ? JSON.parse(req.body)
-        : req.body || {};
-    }catch{
-      body={};
-    }
-
-    let { topic, seen=[] } = body;
-
-    if(!Array.isArray(seen)) seen=[];
+    if(!Array.isArray(seen)) seen = [];
 
     if(!topic){
       return res.status(400).json({ error:"Topic required" });
@@ -298,23 +333,28 @@ export default async function handler(req,res){
     topic = normalizeTopic(topic);
     topic = autocorrectTopic(topic);
 
+    /* SESSION INIT */
+
     if(!topicSessions[topic]){
-      topicSessions[topic] = { count:0, max:5 };
+      topicSessions[topic] = {
+        count:0,
+        max:5
+      };
     }
 
-    if(topicSessions[topic].count >=5){
+    if(topicSessions[topic].count >= 5){
       return res.json({ finished:true });
     }
+
+    /* CACHE INIT */
 
     if(!questionCache[topic]){
       questionCache[topic] = [];
     }
 
-    /* GENERATE QUESTIONS */
+    /* GENERATE QUESTIONS IF CACHE LOW */
 
-    if(questionCache[topic].length === 0 && !generationLocks[topic]){
-
-      generationLocks[topic] = true;
+    if(questionCache[topic].length < 3){
 
       const context = await fetchContext();
 
@@ -334,16 +374,46 @@ export default async function handler(req,res){
 
       }
 
-      generationLocks[topic] = false;
+    }
+
+    /* GET QUESTION */
+
+    let q = getQuestion(topic,seen);
+
+    /* RETRY GENERATION IF NEEDED */
+
+    if(!q){
+
+      console.log("Retrying generation");
+
+      const context = await fetchContext();
+
+      const batch = await generateBatch(topic,context);
+
+      if(batch.length){
+
+        batch.forEach((item,i)=>{
+
+          item.id = `${topic}_${Date.now()}_${i}_${Math.random()
+            .toString(36)
+            .slice(2,6)}`;
+
+          questionCache[topic].push(item);
+
+        });
+
+        q = getQuestion(topic,seen);
+
+      }
 
     }
 
-    const q = getQuestion(topic,seen);
-
     if(!q){
+
       return res.status(500).json({
-        error:"Question generation failed"
+        error:"Generation failed after retry"
       });
+
     }
 
     topicSessions[topic].count++;
