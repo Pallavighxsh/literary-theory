@@ -16,6 +16,7 @@ CACHE
 
 const questionCache = {};
 const topicSessions = {};
+const generationLocks = {};
 
 /* --------------------------------
 KNOWN TOPICS
@@ -50,22 +51,9 @@ SCRAPE SOURCES
 -------------------------------- */
 
 const CONTEXT_SOURCES = [
-
-{
-name:"stanford",
-base:"https://plato.stanford.edu"
-},
-
-{
-name:"iep",
-base:"https://iep.utm.edu"
-},
-
-{
-name:"britannica",
-base:"https://www.britannica.com"
-}
-
+{ name:"stanford", base:"https://plato.stanford.edu" },
+{ name:"iep", base:"https://iep.utm.edu" },
+{ name:"britannica", base:"https://www.britannica.com" }
 ];
 
 /* --------------------------------
@@ -107,7 +95,7 @@ FETCH RANDOM ARTICLE CONTEXT
 
 async function fetchContext(){
 
-  for(let attempt=0; attempt<6; attempt++){
+  for(let attempt=0; attempt<5; attempt++){
 
     try{
 
@@ -162,11 +150,11 @@ async function fetchContext(){
 
       const wordCount = text.split(/\s+/).length;
 
-      if(wordCount > 400){
+      if(wordCount > 200){
 
-        console.log("Context found:",source.name,wordCount);
+        console.log("Context found:",source.name);
 
-        return text.slice(0,2000);
+        return text.slice(0,1200);
 
       }
 
@@ -183,7 +171,7 @@ async function fetchContext(){
 }
 
 /* --------------------------------
-SAFE JSON PARSER (MINIMAL)
+SAFE JSON PARSER
 -------------------------------- */
 
 function safeJSON(text){
@@ -205,7 +193,7 @@ function safeJSON(text){
 
   }catch(err){
 
-    console.log("JSON parse failed:", err);
+    console.log("JSON parse failed");
 
     return [];
 
@@ -214,7 +202,7 @@ function safeJSON(text){
 }
 
 /* --------------------------------
-GENERATE QUESTIONS
+GENERATE QUESTIONS (GROQ)
 -------------------------------- */
 
 async function generateBatch(topic,context){
@@ -248,91 +236,37 @@ Format:
 "D":"option"
 },
 "answer":"A"
-},
-{
-"id":"2",
-"question":"question text",
-"options":{
-"A":"option",
-"B":"option",
-"C":"option",
-"D":"option"
-},
-"answer":"B"
-},
-{
-"id":"3",
-"question":"question text",
-"options":{
-"A":"option",
-"B":"option",
-"C":"option",
-"D":"option"
-},
-"answer":"C"
-},
-{
-"id":"4",
-"question":"question text",
-"options":{
-"A":"option",
-"B":"option",
-"C":"option",
-"D":"option"
-},
-"answer":"D"
-},
-{
-"id":"5",
-"question":"question text",
-"options":{
-"A":"option",
-"B":"option",
-"C":"option",
-"D":"option"
-},
-"answer":"A"
 }
 ]
 `;
 
-  for(let attempt=0; attempt<2; attempt++){
+try{
 
-    try{
+const completion = await groq.chat.completions.create({
 
-      const completion = await groq.chat.completions.create({
+model:"llama-3.1-8b-instant",
+temperature:0.2,
+max_tokens:350,
 
-        model:"llama-3.1-8b-instant",
-        temperature:0.2,
-        max_tokens:600,
+messages:[
+{ role:"user", content:prompt }
+]
 
-        messages:[
-          { role:"user", content:prompt }
-        ]
+});
 
-      });
+const raw = completion.choices[0].message.content;
 
-      const raw = completion.choices[0].message.content;
+console.log("Groq RAW:",raw);
 
-      console.log("Groq RAW:", raw);
+return safeJSON(raw);
 
-      const parsed = safeJSON(raw);
+}catch(err){
 
-      if(parsed.length < 1){
-        throw new Error("Groq returned empty JSON");
-      }
+console.log("Groq generation failed:",err.message);
 
-      if(parsed.length) return parsed;
+return [];
 
-    }catch(err){
-
-      console.log("Groq generation failed");
-
-    }
-
-  }
-
-  return [];
+}
 
 }
 
@@ -371,14 +305,11 @@ export default async function handler(req,res){
       ? JSON.parse(req.body)
       : req.body || {};
 
-    console.log("BODY:", body);
-
     let { topic, seen = [] } = body;
 
     if(!Array.isArray(seen)) seen = [];
 
     if(!topic){
-      console.log("Missing topic");
       return res.status(400).json({ error:"Topic required" });
     }
 
@@ -400,7 +331,13 @@ export default async function handler(req,res){
       questionCache[topic] = [];
     }
 
-    if(questionCache[topic].length < 3){
+    /* --------------------------------
+    GENERATE QUESTIONS IF CACHE EMPTY
+    -------------------------------- */
+
+    if(questionCache[topic].length === 0 && !generationLocks[topic]){
+
+      generationLocks[topic] = true;
 
       const context = await fetchContext();
 
@@ -420,42 +357,16 @@ export default async function handler(req,res){
 
       }
 
-    }
-
-    let q = getQuestion(topic,seen);
-
-    if(!q){
-
-      console.log("Retrying generation");
-
-      const context = await fetchContext();
-
-      const batch = await generateBatch(topic,context);
-
-      if(batch.length){
-
-        batch.forEach((item,i)=>{
-
-          item.id = `${topic}_${Date.now()}_${i}_${Math.random()
-            .toString(36)
-            .slice(2,6)}`;
-
-          questionCache[topic].push(item);
-
-        });
-
-        q = getQuestion(topic,seen);
-
-      }
+      generationLocks[topic] = false;
 
     }
 
-    if(!q){
+    const q = getQuestion(topic,seen);
 
+    if(!q){
       return res.status(500).json({
-        error:"Generation failed after retry"
+        error:"No questions available"
       });
-
     }
 
     topicSessions[topic].count++;
