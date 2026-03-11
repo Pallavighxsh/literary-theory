@@ -246,21 +246,19 @@ How can we help?
 Send us a message and our team will be happy to assist.
 </p>
 
-<form class="contact">
+<form class="contact" method="POST" action="/api/contact">
 
-<input type="text" placeholder="Name">
+<input type="text" name="name" placeholder="Name" required>
 
-<input type="email" placeholder="Email">
+<input type="email" name="email" placeholder="Email" required>
 
-<textarea placeholder="Message"></textarea>
+<textarea name="message" placeholder="Message" required></textarea>
 
 <button type="submit">
 Send Message
 </button>
 
 </form>
-
-</div>
 
 </div>
 
