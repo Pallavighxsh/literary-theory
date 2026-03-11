@@ -53,39 +53,17 @@ const CONTEXT_SOURCES = [
 
 {
 name:"stanford",
-pages:[
-"https://plato.stanford.edu/entries/structuralism/",
-"https://plato.stanford.edu/entries/postmodernism/",
-"https://plato.stanford.edu/entries/hermeneutics/",
-"https://plato.stanford.edu/entries/semiotics/",
-"https://plato.stanford.edu/entries/derrida/",
-"https://plato.stanford.edu/entries/foucault/",
-"https://plato.stanford.edu/entries/reader-response/"
-]
+base:"https://plato.stanford.edu"
 },
 
 {
 name:"iep",
-pages:[
-"https://iep.utm.edu/structur/",
-"https://iep.utm.edu/postmod/",
-"https://iep.utm.edu/hermeneu/",
-"https://iep.utm.edu/derrida/",
-"https://iep.utm.edu/foucault/",
-"https://iep.utm.edu/semiotics/"
-]
+base:"https://iep.utm.edu"
 },
 
 {
 name:"britannica",
-pages:[
-"https://www.britannica.com/topic/structuralism",
-"https://www.britannica.com/topic/postmodernism-philosophy",
-"https://www.britannica.com/topic/hermeneutics",
-"https://www.britannica.com/topic/semiotics",
-"https://www.britannica.com/topic/postcolonialism",
-"https://www.britannica.com/topic/deconstruction"
-]
+base:"https://www.britannica.com"
 }
 
 ];
@@ -138,24 +116,46 @@ async function fetchContext(){
           Math.floor(Math.random()*CONTEXT_SOURCES.length)
         ];
 
+      const homepage = await axios.get(source.base,{
+        timeout:8000,
+        headers:{ "User-Agent":"Mozilla/5.0" }
+      });
+
+      const $ = cheerio.load(homepage.data);
+
+      const links = [];
+
+      $("a").each((i,el)=>{
+
+        const href = $(el).attr("href");
+
+        if(!href) return;
+        if(!href.startsWith("/")) return;
+
+        const url = source.base + href;
+
+        links.push(url);
+
+      });
+
+      if(!links.length) continue;
+
       const randomPage =
-        source.pages[
-          Math.floor(Math.random()*source.pages.length)
-        ];
+        links[Math.floor(Math.random()*links.length)];
 
       const page = await axios.get(randomPage,{
         timeout:8000,
         headers:{ "User-Agent":"Mozilla/5.0" }
       });
 
-      const $ = cheerio.load(page.data);
+      const $$ = cheerio.load(page.data);
 
       let text="";
 
-      $("p").each((i,el)=>{
+      $$("p").each((i,el)=>{
 
         if(i<20){
-          text += $(el).text()+" ";
+          text += $$(el).text()+" ";
         }
 
       });
@@ -385,8 +385,6 @@ export default async function handler(req,res){
     topic = normalizeTopic(topic);
     topic = autocorrectTopic(topic);
 
-    /* SESSION INIT */
-
     if(!topicSessions[topic]){
       topicSessions[topic] = {
         count:0,
@@ -398,13 +396,9 @@ export default async function handler(req,res){
       return res.json({ finished:true });
     }
 
-    /* CACHE INIT */
-
     if(!questionCache[topic]){
       questionCache[topic] = [];
     }
-
-    /* GENERATE QUESTIONS IF CACHE LOW */
 
     if(questionCache[topic].length < 3){
 
@@ -428,11 +422,7 @@ export default async function handler(req,res){
 
     }
 
-    /* GET QUESTION */
-
     let q = getQuestion(topic,seen);
-
-    /* RETRY GENERATION IF NEEDED */
 
     if(!q){
 
