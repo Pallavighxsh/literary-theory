@@ -95,7 +95,7 @@ FETCH CONTEXT
 
 async function fetchContext(){
 
-  for(let attempt=0; attempt<4; attempt++){
+  for(let attempt=0; attempt<5; attempt++){
 
     try{
 
@@ -111,11 +111,11 @@ async function fetchContext(){
 
       const $ = cheerio.load(homepage.data);
 
-      const links=[];
+      const links = [];
 
       $("a").each((i,el)=>{
 
-        const href=$(el).attr("href");
+        const href = $(el).attr("href");
 
         if(!href) return;
         if(!href.startsWith("/")) return;
@@ -140,18 +140,20 @@ async function fetchContext(){
 
       $$("p").each((i,el)=>{
 
-        if(i<15){
+        if(i<20){
           text += $$(el).text()+" ";
         }
 
       });
 
-      if(text.length>400){
+      if(text.length > 400){
         return text.slice(0,1200);
       }
 
     }catch(err){
+
       console.log("Context attempt failed");
+
     }
 
   }
@@ -161,7 +163,7 @@ async function fetchContext(){
 }
 
 /* --------------------------------
-ROBUST JSON PARSER
+SAFE JSON PARSER
 -------------------------------- */
 
 function safeJSON(text){
@@ -179,40 +181,15 @@ function safeJSON(text){
 
     const parsed = JSON.parse(match[0]);
 
-    if(!Array.isArray(parsed)) return [];
-
-    return parsed;
+    return Array.isArray(parsed) ? parsed : [];
 
   }catch(err){
 
-    console.log("JSON parse failed:",err);
+    console.log("JSON parse failed:", err);
 
     return [];
 
   }
-
-}
-
-/* --------------------------------
-VALIDATE QUESTIONS
--------------------------------- */
-
-function validateQuestions(arr){
-
-  if(!Array.isArray(arr)) return [];
-
-  return arr.filter(q =>
-
-    q &&
-    q.question &&
-    q.options &&
-    q.options.A &&
-    q.options.B &&
-    q.options.C &&
-    q.options.D &&
-    q.answer
-
-  );
 
 }
 
@@ -234,10 +211,10 @@ Rules:
 - Each question must have 4 options labelled A B C D
 - Only one correct answer
 - Return ONLY valid JSON
+- No explanations
 - No text outside JSON
+- Must contain EXACTLY 5 objects
 `;
-
-for(let attempt=0; attempt<2; attempt++){
 
 try{
 
@@ -257,23 +234,15 @@ const raw = completion.choices?.[0]?.message?.content || "";
 
 console.log("Groq preview:", raw.slice(0,120));
 
-const parsed = safeJSON(raw);
-
-const valid = validateQuestions(parsed);
-
-if(valid.length >=3){
-  return valid;
-}
+return safeJSON(raw);
 
 }catch(err){
 
-console.log("Groq generation failed:",err.message);
-
-}
-
-}
+console.log("Groq generation failed:", err.message);
 
 return [];
+
+}
 
 }
 
@@ -323,29 +292,29 @@ export default async function handler(req,res){
     if(!Array.isArray(seen)) seen=[];
 
     if(!topic){
-      return res.status(400).json({error:"Topic required"});
+      return res.status(400).json({ error:"Topic required" });
     }
 
     topic = normalizeTopic(topic);
     topic = autocorrectTopic(topic);
 
     if(!topicSessions[topic]){
-      topicSessions[topic]={count:0,max:5};
+      topicSessions[topic] = { count:0, max:5 };
     }
 
     if(topicSessions[topic].count >=5){
-      return res.json({finished:true});
+      return res.json({ finished:true });
     }
 
     if(!questionCache[topic]){
-      questionCache[topic]=[];
+      questionCache[topic] = [];
     }
 
-    /* GENERATE IF CACHE EMPTY */
+    /* GENERATE QUESTIONS */
 
-    if(questionCache[topic].length===0 && !generationLocks[topic]){
+    if(questionCache[topic].length === 0 && !generationLocks[topic]){
 
-      generationLocks[topic]=true;
+      generationLocks[topic] = true;
 
       const context = await fetchContext();
 
@@ -365,18 +334,16 @@ export default async function handler(req,res){
 
       }
 
-      generationLocks[topic]=false;
+      generationLocks[topic] = false;
 
     }
 
     const q = getQuestion(topic,seen);
 
     if(!q){
-
       return res.status(500).json({
         error:"Question generation failed"
       });
-
     }
 
     topicSessions[topic].count++;
