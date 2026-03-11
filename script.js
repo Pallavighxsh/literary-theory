@@ -304,16 +304,22 @@ downloadAllBtn.addEventListener("click", async ()=>{
 const history = JSON.parse(localStorage.getItem("quiz_history")) || [];
 
 if(history.length < MAX_QUESTIONS){
-
 alert("You must complete all 5 questions before downloading.");
-
 return;
-
 }
 
-const passkey = prompt("Enter download passkey");
+/* ask for email instead of passkey */
 
-if(!passkey) return;
+const email = prompt("Enter your email to receive the questions");
+
+if(!email) return;
+
+/* basic validation */
+
+if(!email.includes("@") || !email.includes(".")){
+alert("Please enter a valid email.");
+return;
+}
 
 try{
 
@@ -326,41 +332,23 @@ headers:{
 },
 
 body:JSON.stringify({
-passkey:passkey,
+email:email,
 questions:history.slice(-MAX_QUESTIONS)
 })
 
 });
 
 if(!res.ok){
-
-alert("Invalid passkey or download failed.");
-
+alert("Email sending failed. Please try again.");
 return;
-
 }
 
-const blob = await res.blob();
-
-const url = URL.createObjectURL(blob);
-
-const a = document.createElement("a");
-
-a.href = url;
-
-a.download = "literary_theory_questions.docx";
-
-document.body.appendChild(a);
-
-a.click();
-
-document.body.removeChild(a);
+alert("📧 Questions have been sent to your email.");
 
 }catch(err){
 
-console.error("Download error:",err);
-
-alert("Download failed");
+console.error("Email send error:",err);
+alert("Email failed to send");
 
 }
 
