@@ -319,9 +319,13 @@ Format:
 
       const raw = completion.choices[0].message.content;
 
-      console.log("Groq preview:", raw.slice(0,120));
+      console.log("Groq RAW:", raw);
 
       const parsed = safeJSON(raw);
+
+      if(parsed.length < 1){
+        throw new Error("Groq returned empty JSON");
+      }
 
       if(parsed.length) return parsed;
 
@@ -368,11 +372,18 @@ export default async function handler(req,res){
 
   try{
 
-    let { topic, seen=[] } = req.body;
+    const body = typeof req.body === "string"
+      ? JSON.parse(req.body)
+      : req.body || {};
+
+    console.log("BODY:", body);
+
+    let { topic, seen = [] } = body;
 
     if(!Array.isArray(seen)) seen = [];
 
     if(!topic){
+      console.log("Missing topic");
       return res.status(400).json({ error:"Topic required" });
     }
 
