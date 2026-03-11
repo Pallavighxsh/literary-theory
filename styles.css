@@ -720,37 +720,6 @@ border:2px solid #00356b;
 
 }
 
-.download-actions{
-margin-top:15px;
-text-align:center;
-}
-
-.email-btn{
-
-display:inline-block;
-
-padding:12px 18px;
-
-background:#00356b;
-color:white;
-
-text-decoration:none;
-
-font-weight:600;
-
-border:2px solid #00356b;
-
-transition:all 0.2s;
-
-}
-
-.email-btn:hover{
-
-background:#87ceeb;
-color:#001f3f;
-
-}
-
 
 
 /* =====================================================
