@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { kv } from "@vercel/kv";
 
 /* --------------------------------
 EMAIL STORE (simple dictionary)
@@ -62,11 +63,19 @@ return res.status(400).json({error:"Email required"});
 
 /* store email if new */
 
-if(!emailStore[email]){
-emailStore[email] = true;
+const exists = await kv.sismember("quiz_emails", email);
+
+if(!exists){
+await kv.sadd("quiz_emails", email);
 console.log("New email captured:",email);
 }else{
 console.log("Existing email:",email);
+}
+
+/* keep temporary runtime store (unchanged logic) */
+
+if(!emailStore[email]){
+emailStore[email] = true;
 }
 
 /* format questions */
