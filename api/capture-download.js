@@ -1,244 +1,97 @@
-document.addEventListener("DOMContentLoaded", () => {
+import nodemailer from "nodemailer";
 
-console.log("Quiz script loaded");
+/* --------------------------------
+EMAIL STORE (simple dictionary)
+-------------------------------- */
 
-/* -------------------------
-STATE
-------------------------- */
+const emailStore = {};
 
-let userTopic = "";
-let questionsSeen = 0;
-const MAX_QUESTIONS = 10;
+/* --------------------------------
+MAIL TRANSPORT
+-------------------------------- */
 
-let currentQuestion = null;
-let quizQuestions = [];
+const transporter = nodemailer.createTransport({
+service: "gmail",
+auth: {
+user: process.env.EMAIL_USER,
+pass: process.env.EMAIL_PASS
+}
+});
 
-window.quizQuestions = quizQuestions;
+/* --------------------------------
+FORMAT QUESTIONS
+-------------------------------- */
 
-/* -------------------------
-ELEMENTS
-------------------------- */
+function formatQuestions(questions){
 
-const topicInput = document.getElementById("topicInput");
-const generateBtn = document.getElementById("generateBtn");
+let text = "Your Literary Theory Quiz Questions\n\n";
 
-const questionBox = document.getElementById("questionBox");
-const optionsBox = document.getElementById("optionsBox");
+questions.forEach((q,i)=>{
 
-const nextBtn = document.getElementById("nextBtn");
+text += `${i+1}. ${q.question}\n`;
 
-const quizEndMessage = document.getElementById("quizEndMessage");
+Object.entries(q.options).forEach(([k,v])=>{
+text += `${k}. ${v}\n`;
+});
 
-const passkeyInput = document.getElementById("downloadPasskey");
-const downloadBtn = document.getElementById("submitPasskey");
+text += `Answer: ${q.answer}\n\n`;
 
+});
 
-/* -------------------------
-GENERATE QUESTION
-------------------------- */
-
-async function generateQuestion() {
-
-  if (questionsSeen >= MAX_QUESTIONS) {
-    quizEndMessage.textContent =
-      "You’ve reached the end of this quiz. Start a new topic to generate more questions.";
-    return;
-  }
-
-  quizEndMessage.textContent = "";
-
-  try {
-
-    const topic = topicInput.value.trim();
-
-    if (!topic) {
-      alert("Please enter a topic.");
-      return;
-    }
-
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        topic: topic
-      })
-    });
-
-    if (!res.ok) {
-      throw new Error("Generation failed");
-    }
-
-    const data = await res.json();
-
-    currentQuestion = data;
-
-    questionsSeen++;
-
-    displayQuestion(data);
-
-    quizQuestions.push(data);
-
-    window.quizQuestions = quizQuestions;
-
-  } catch (err) {
-
-    console.error(err);
-    alert("Could not generate question.");
-
-  }
+return text;
 
 }
 
+/* --------------------------------
+API HANDLER
+-------------------------------- */
 
-/* -------------------------
-DISPLAY QUESTION
-------------------------- */
+export default async function handler(req,res){
 
-function displayQuestion(q) {
+if(req.method !== "POST"){
+return res.status(405).json({error:"Method not allowed"});
+}
 
-  questionBox.textContent = q.question;
+try{
 
-  optionsBox.innerHTML = "";
+const {email,questions} = req.body;
 
-  Object.entries(q.options).forEach(([key, value]) => {
+if(!email){
+return res.status(400).json({error:"Email required"});
+}
 
-    const btn = document.createElement("button");
+/* store email if new */
 
-    btn.className = "option-btn";
+if(!emailStore[email]){
+emailStore[email] = true;
+console.log("New email captured:",email);
+}else{
+console.log("Existing email:",email);
+}
 
-    btn.textContent = `${key}. ${value}`;
+/* format questions */
 
-    btn.addEventListener("click", () => {
-      revealAnswer(key);
-    });
+const message = formatQuestions(questions);
 
-    optionsBox.appendChild(btn);
+/* send email */
 
-  });
+await transporter.sendMail({
+
+from: `"Literary Theory Quiz" <${process.env.EMAIL_USER}>`,
+to: email,
+subject: "Your Literary Theory Quiz Questions",
+text: message
+
+});
+
+return res.status(200).json({success:true});
+
+}catch(err){
+
+console.error("Email send error:",err);
+
+return res.status(500).json({error:"Email failed"});
 
 }
 
-
-/* -------------------------
-REVEAL ANSWER
-------------------------- */
-
-function revealAnswer(choice) {
-
-  const buttons = document.querySelectorAll(".option-btn");
-
-  buttons.forEach(btn => {
-
-    if (btn.textContent.startsWith(currentQuestion.answer)) {
-      btn.style.background = "#4CAF50";
-    }
-
-    if (btn.textContent.startsWith(choice) && choice !== currentQuestion.answer) {
-      btn.style.background = "#e53935";
-    }
-
-  });
-
 }
-
-
-/* -------------------------
-GENERATE FIRST QUESTION
-------------------------- */
-
-generateBtn.addEventListener("click", () => {
-
-  questionsSeen = 0;
-  quizQuestions = [];
-  window.quizQuestions = quizQuestions;
-
-  nextBtn.disabled = false;
-
-  generateQuestion();
-
-});
-
-
-/* -------------------------
-NEXT QUESTION
-------------------------- */
-
-nextBtn.addEventListener("click", () => {
-
-  if (questionsSeen >= MAX_QUESTIONS) {
-
-    quizEndMessage.textContent =
-      "You’ve reached the end of this quiz. Start a new topic to generate more questions.";
-
-    nextBtn.disabled = true;
-
-    return;
-  }
-
-  generateQuestion();
-
-});
-
-
-/* -------------------------
-DOWNLOAD QUESTIONS
-------------------------- */
-
-downloadBtn.addEventListener("click", async () => {
-
-  const passkey = passkeyInput.value.trim();
-
-  if (!passkey) {
-    alert("Please enter your passkey.");
-    return;
-  }
-
-  if (quizQuestions.length === 0) {
-    alert("No questions available to download.");
-    return;
-  }
-
-  try {
-
-    const res = await fetch("/api/download", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        passkey: passkey,
-        questions: quizQuestions
-      })
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      alert(data.error || "Download failed");
-      return;
-    }
-
-    const blob = await res.blob();
-
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-
-    a.href = url;
-    a.download = "literary_theory_questions.docx";
-
-    a.click();
-
-    window.URL.revokeObjectURL(url);
-
-  } catch (err) {
-
-    console.error(err);
-    alert("Download failed");
-
-  }
-
-});
-
-});
