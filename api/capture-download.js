@@ -102,6 +102,7 @@ Best wishes,
 Pallavi Ghosh  
 Brand Strategist  
 PHI Learning
+pallavighosh@phindia.com
 `;
 
 /* send email */
