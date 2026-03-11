@@ -53,26 +53,39 @@ const CONTEXT_SOURCES = [
 
 {
 name:"stanford",
-base:"https://plato.stanford.edu",
-linkSelector:"a[href^='/entries/']"
+pages:[
+"https://plato.stanford.edu/entries/structuralism/",
+"https://plato.stanford.edu/entries/postmodernism/",
+"https://plato.stanford.edu/entries/hermeneutics/",
+"https://plato.stanford.edu/entries/semiotics/",
+"https://plato.stanford.edu/entries/derrida/",
+"https://plato.stanford.edu/entries/foucault/",
+"https://plato.stanford.edu/entries/reader-response/"
+]
 },
 
 {
 name:"iep",
-base:"https://iep.utm.edu",
-linkSelector:"a[href^='https://iep.utm.edu/']"
+pages:[
+"https://iep.utm.edu/structur/",
+"https://iep.utm.edu/postmod/",
+"https://iep.utm.edu/hermeneu/",
+"https://iep.utm.edu/derrida/",
+"https://iep.utm.edu/foucault/",
+"https://iep.utm.edu/semiotics/"
+]
 },
 
 {
 name:"britannica",
-base:"https://www.britannica.com",
-linkSelector:"a[href^='/topic/']"
-},
-
-{
-name:"wikipedia",
-base:"https://en.wikipedia.org/wiki/Philosophy",
-linkSelector:"a[href^='/wiki/']"
+pages:[
+"https://www.britannica.com/topic/structuralism",
+"https://www.britannica.com/topic/postmodernism-philosophy",
+"https://www.britannica.com/topic/hermeneutics",
+"https://www.britannica.com/topic/semiotics",
+"https://www.britannica.com/topic/postcolonialism",
+"https://www.britannica.com/topic/deconstruction"
+]
 }
 
 ];
@@ -125,48 +138,24 @@ async function fetchContext(){
           Math.floor(Math.random()*CONTEXT_SOURCES.length)
         ];
 
-      const res = await axios.get(source.base,{
+      const randomPage =
+        source.pages[
+          Math.floor(Math.random()*source.pages.length)
+        ];
+
+      const page = await axios.get(randomPage,{
         timeout:8000,
         headers:{ "User-Agent":"Mozilla/5.0" }
       });
 
-      const $ = cheerio.load(res.data);
-
-      const links = [];
-
-      $(source.linkSelector).each((i,el)=>{
-
-        const href = $(el).attr("href");
-
-        if(!href) return;
-        if(href.includes(":")) return;
-
-        const url = href.startsWith("http")
-          ? href
-          : source.base + href;
-
-        links.push(url);
-
-      });
-
-      if(!links.length) continue;
-
-      const randomLink =
-        links[Math.floor(Math.random()*links.length)];
-
-      const page = await axios.get(randomLink,{
-        timeout:8000,
-        headers:{ "User-Agent":"Mozilla/5.0" }
-      });
-
-      const $$ = cheerio.load(page.data);
+      const $ = cheerio.load(page.data);
 
       let text="";
 
-      $$("p").each((i,el)=>{
+      $("p").each((i,el)=>{
 
         if(i<20){
-          text += $$(el).text()+" ";
+          text += $(el).text()+" ";
         }
 
       });
