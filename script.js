@@ -3,7 +3,6 @@ document.addEventListener("DOMContentLoaded", () => {
 console.log("Quiz script loaded");
 
 let seenIds = [];
-
 let quizStarted = false;
 let questionsSeen = 0;
 const MAX_QUESTIONS = 5;
@@ -46,7 +45,7 @@ loading = true;
 /* messaging */
 
 if(!quizStarted){
-.innerText = "Generating questions...";
+status.innerText = "Generating questions...";
 }else{
 status.innerText = "Loading next question...";
 }
@@ -72,6 +71,12 @@ seen:seenIds
 })
 
 });
+
+/* check response */
+
+if(!res.ok){
+throw new Error("API response not OK");
+}
 
 const data = await res.json();
 
@@ -127,7 +132,7 @@ generateBtn.disabled = false;
 
 }catch(err){
 
-console.error(err);
+console.error("Question generation error:",err);
 
 status.innerText =
 "⚠️ Question generation failed. Please try again.";
@@ -353,7 +358,7 @@ document.body.removeChild(a);
 
 }catch(err){
 
-console.error(err);
+console.error("Download error:",err);
 
 alert("Download failed");
 
