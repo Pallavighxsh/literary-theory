@@ -123,7 +123,7 @@ nextBtn.disabled = false;
 nextBtn.disabled = true;
 
 status.innerText =
-"✅ You completed all 5 questions. You may download them.";
+"✅ You completed all 5 questions. Scroll down to receive them all via email.";
 
 quizStarted = false;
 generateBtn.disabled = false;
