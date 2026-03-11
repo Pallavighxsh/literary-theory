@@ -294,7 +294,6 @@ container.appendChild(div);
 /* -------------------------
 DOWNLOAD QUESTIONS
 ------------------------- */
-
 const downloadAllBtn = document.getElementById("downloadAllBtn");
 
 if(downloadAllBtn){
@@ -308,15 +307,16 @@ alert("You must complete all 5 questions before downloading.");
 return;
 }
 
-/* ask for email instead of passkey */
+const emailInput = document.getElementById("downloadEmail");
 
-const email = prompt("Enter your email to receive the questions");
+const email = emailInput.value.trim();
 
-if(!email) return;
+if(!email){
+alert("Please enter your email address.");
+return;
+}
 
-/* basic validation */
-
-if(!email.includes("@") || !email.includes(".")){
+if(!email.includes("@")){
 alert("Please enter a valid email.");
 return;
 }
