@@ -90,11 +90,9 @@ https://phindia.com/Books/BookDetail/9788120352850/74-Topics-in-Literary-Theory
 
 The book offers concise introductions to major concepts and thinkers in literary theory. Institutions adopting the book through bulk purchase can enable direct student access to the quiz generator without requiring email entry for every download.
 
-HERE ARE YOUR QUIZ QUESTIONS
 --------------------------------------------------
 
 ${formatQuestions(questions)}
-
 --------------------------------------------------
 
 Please do not hesitate to reply to this email if you have any questions.
