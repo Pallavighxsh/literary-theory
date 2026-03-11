@@ -190,16 +190,22 @@ function safeJSON(text){
 
   try{
 
+    text = text.replace(/```json/g,"").replace(/```/g,"").trim();
+
     const start = text.indexOf("[");
     const end = text.lastIndexOf("]");
 
     if(start === -1 || end === -1) return [];
 
-    const parsed = JSON.parse(text.slice(start,end+1));
+    const json = text.slice(start,end+1);
+
+    const parsed = JSON.parse(json);
 
     return Array.isArray(parsed) ? parsed : [];
 
-  }catch{
+  }catch(err){
+
+    console.log("JSON parse failed:", err);
 
     return [];
 
