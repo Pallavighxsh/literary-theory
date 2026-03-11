@@ -151,33 +151,45 @@ async function fetchContext(){
 
       if(!links.length) continue;
 
-      const randomLink =
-        links[Math.floor(Math.random()*links.length)];
+      /* try multiple articles if needed */
 
-      const page = await axios.get(randomLink,{
-        timeout:8000,
-        headers:{ "User-Agent":"Mozilla/5.0" }
-      });
+      for(let i=0;i<5;i++){
 
-      const $$ = cheerio.load(page.data);
+        const randomLink =
+          links[Math.floor(Math.random()*links.length)];
 
-      let text="";
+        try{
 
-      $$("p").each((i,el)=>{
+          const page = await axios.get(randomLink,{
+            timeout:8000,
+            headers:{ "User-Agent":"Mozilla/5.0" }
+          });
 
-        if(i<20){
-          text += $$(el).text()+" ";
+          const $$ = cheerio.load(page.data);
+
+          let text="";
+
+          $$("p").each((i,el)=>{
+
+            if(i<10){
+              text += $$(el).text()+" ";
+            }
+
+          });
+
+          const wordCount = text.split(/\s+/).length;
+
+          if(wordCount > 400){
+
+            console.log("Context found:",source.name,wordCount);
+
+            return text.slice(0,2000);
+
+          }
+
+        }catch(err){
+          continue;
         }
-
-      });
-
-      const wordCount = text.split(/\s+/).length;
-
-      if(wordCount > 400){
-
-        console.log("Context found:",source.name,wordCount);
-
-        return text.slice(0,2000);
 
       }
 
@@ -212,7 +224,29 @@ function safeJSON(text){
 
   }catch{
 
-    return [];
+    /* attempt loose extraction */
+
+    try{
+
+      const rough = text.match(/\{[\s\S]*?\}/g);
+
+      if(!rough) return [];
+
+      const items = rough.map(r=>{
+        try{
+          return JSON.parse(r);
+        }catch{
+          return null;
+        }
+      }).filter(Boolean);
+
+      return items;
+
+    }catch{
+
+      return [];
+
+    }
 
   }
 
