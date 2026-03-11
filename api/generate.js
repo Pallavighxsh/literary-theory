@@ -224,8 +224,8 @@ GENERATE QUESTIONS
 
 async function generateBatch(topic,context){
 
-  const prompt = `
-Generate exactly 5 multiple choice questions.
+const prompt = `
+Generate EXACTLY 5 multiple choice questions.
 
 Topic: ${topic}
 
@@ -233,17 +233,63 @@ Context:
 ${context}
 
 Rules:
-- 4 options labelled A B C D
+- Each question must have 4 options labelled A B C D
 - Only one correct answer
 - Return ONLY valid JSON
 - No explanations
+- No text outside JSON
+- Must contain EXACTLY 5 objects
 
 Format:
 
 [
 {
 "id":"1",
-"question":"text",
+"question":"question text",
+"options":{
+"A":"option",
+"B":"option",
+"C":"option",
+"D":"option"
+},
+"answer":"A"
+},
+{
+"id":"2",
+"question":"question text",
+"options":{
+"A":"option",
+"B":"option",
+"C":"option",
+"D":"option"
+},
+"answer":"B"
+},
+{
+"id":"3",
+"question":"question text",
+"options":{
+"A":"option",
+"B":"option",
+"C":"option",
+"D":"option"
+},
+"answer":"C"
+},
+{
+"id":"4",
+"question":"question text",
+"options":{
+"A":"option",
+"B":"option",
+"C":"option",
+"D":"option"
+},
+"answer":"D"
+},
+{
+"id":"5",
+"question":"question text",
 "options":{
 "A":"option",
 "B":"option",
