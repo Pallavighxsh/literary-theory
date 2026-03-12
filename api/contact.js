@@ -6,6 +6,8 @@ if (req.method !== "POST") {
 return res.status(405).json({ message: "Method not allowed" });
 }
 
+try {
+
 const { name, email, message } = req.body;
 
 const transporter = nodemailer.createTransport({
@@ -16,11 +18,10 @@ pass: process.env.EMAIL_PASS
 }
 });
 
-try {
-
 await transporter.sendMail({
-from: process.env.EMAIL_USER,
+from: `"Website Contact" <${process.env.EMAIL_USER}>`,
 to: "pallavighosh@phindia.com",
+replyTo: email,
 subject: "New Contact Form Message",
 html: `
 <b>Name:</b> ${name}<br>
@@ -29,13 +30,16 @@ html: `
 `
 });
 
-res.status(200).json({ success: true });
+return res.status(200).json({ success: true });
 
 } catch (error) {
 
-console.error(error);
+console.error("EMAIL ERROR:", error);
 
-res.status(500).json({ error: "Email failed" });
+return res.status(500).json({
+error: "Email failed",
+details: error.message
+});
 
 }
 
