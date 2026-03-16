@@ -5,6 +5,8 @@ console.log("Quiz script loaded");
 let seenIds = [];
 let quizStarted = false;
 let questionsSeen = 0;
+let currentIndex = -1;
+
 const MAX_QUESTIONS = 5;
 
 let loading = false;
@@ -43,15 +45,11 @@ return;
 
 loading = true;
 
-/* messaging */
-
 if(!quizStarted){
 status.innerText = "Generating questions...";
 }else{
 status.innerText = "Loading next question...";
 }
-
-/* disable buttons while loading */
 
 generateBtn.disabled = true;
 nextBtn.disabled = true;
@@ -96,60 +94,42 @@ return;
 
 }
 
+/* store seen id */
+
 seenIds.push(data.id);
 
 questionsSeen = data.progress;
 
-renderQuestion(data);
+/* save question */
 
 saveQuestion(data);
 
-/* progress */
+/* render */
+
+renderQuestion(data);
 
 status.innerText =
-`Question ${data.progress} of ${MAX_QUESTIONS} • complete quiz to generate another`;
+`Question ${data.progress} of ${MAX_QUESTIONS}`;
 
 quizStarted = true;
 
-/* enable next if remaining */
+/* quiz completed */
 
-if(data.remaining > 0){
+if(data.progress >= MAX_QUESTIONS){
 
-nextBtn.disabled = false;
+quizStarted = false;
+nextBtn.disabled = true;
+generateBtn.disabled = false;
+
+/* popup */
+
+alert(
+"🎉 Quiz Complete!\n\nScroll down and enter your email to receive all 5 questions."
+);
 
 }else{
 
-nextBtn.disabled = true;
-
-status.innerHTML = `
-<div style="
-margin-top:20px;
-padding:20px;
-font-size:20px;
-font-weight:600;
-background:#fff8dc;
-border:3px solid #f5c518;
-border-radius:10px;
-text-align:center;
-">
-🎉 <strong>Quiz Complete!</strong><br>
-⬇️ Scroll down to <strong>enter your email</strong> and receive all questions.<br>
-📩 We'll send them instantly.
-</div>
-`;
-
-quizStarted = false;
-generateBtn.disabled = false;
-
-/* auto scroll to email */
-
-const emailField = document.getElementById("downloadEmail");
-
-if(emailField){
-emailField.scrollIntoView({
-behavior:"smooth"
-});
-}
+nextBtn.disabled = false;
 
 }
 
@@ -181,11 +161,7 @@ quiz.classList.remove("hidden");
 
 questionText.innerText = q.question;
 
-/* clear options */
-
 optionsList.innerHTML = "";
-
-/* render options */
 
 Object.entries(q.options).forEach(([key,val])=>{
 
@@ -197,16 +173,14 @@ optionsList.appendChild(li);
 
 });
 
-/* hide answer each time */
-
 answerText.innerText = "Answer: " + q.answer;
 
 answerText.classList.add("hidden");
 
-/* disable prev button if needed */
+/* back button state */
 
 if(prevBtn){
-prevBtn.disabled = questionsSeen <= 1;
+prevBtn.disabled = currentIndex <= 0;
 }
 
 }
@@ -246,10 +220,11 @@ return;
 
 }
 
-/* reset quiz */
+/* reset */
 
 seenIds = [];
 questionsSeen = 0;
+currentIndex = -1;
 quizStarted = false;
 
 localStorage.removeItem("quiz_history");
@@ -262,9 +237,28 @@ getQuestion();
 
 }
 
+/* NEXT */
+
 if(nextBtn){
 
 nextBtn.addEventListener("click",()=>{
+
+const history = JSON.parse(localStorage.getItem("quiz_history")) || [];
+
+/* navigate existing */
+
+if(currentIndex < history.length - 1){
+
+currentIndex++;
+
+renderQuestion(history[currentIndex]);
+
+status.innerText =
+`Question ${currentIndex + 1} of ${MAX_QUESTIONS}`;
+
+return;
+
+}
 
 if(loading) return;
 
@@ -274,9 +268,7 @@ getQuestion();
 
 }
 
-/* -------------------------
-PREVIOUS QUESTION
-------------------------- */
+/* BACK */
 
 if(prevBtn){
 
@@ -284,24 +276,17 @@ prevBtn.addEventListener("click",()=>{
 
 const history = JSON.parse(localStorage.getItem("quiz_history")) || [];
 
-if(history.length <= 1){
+if(currentIndex <= 0){
 alert("No previous question.");
 return;
 }
 
-/* remove current */
+currentIndex--;
 
-history.pop();
+renderQuestion(history[currentIndex]);
 
-localStorage.setItem("quiz_history",JSON.stringify(history));
-
-const prev = history[history.length - 1];
-
-seenIds.pop();
-
-questionsSeen--;
-
-renderQuestion(prev);
+status.innerText =
+`Question ${currentIndex + 1} of ${MAX_QUESTIONS}`;
 
 });
 
@@ -320,6 +305,8 @@ const history = JSON.parse(localStorage.getItem(key)) || [];
 history.push(q);
 
 localStorage.setItem(key,JSON.stringify(history));
+
+currentIndex = history.length - 1;
 
 renderHistory();
 
