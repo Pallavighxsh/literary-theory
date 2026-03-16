@@ -121,6 +121,11 @@ quizStarted = false;
 nextBtn.disabled = true;
 generateBtn.disabled = false;
 
+/* keep original status message */
+
+status.innerText =
+"✅ You completed all 5 questions. Scroll down to receive them all via email.";
+
 /* popup */
 
 alert(
