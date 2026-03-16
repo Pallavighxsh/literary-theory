@@ -13,6 +13,7 @@ let loading = false;
 
 const generateBtn = document.getElementById("generateBtn");
 const nextBtn = document.getElementById("nextQuestion");
+const prevBtn = document.getElementById("prevQuestion");
 const revealBtn = document.getElementById("showAnswer");
 
 const topicField = document.getElementById("topic");
@@ -72,8 +73,6 @@ seen:seenIds
 
 });
 
-/* check response */
-
 if(!res.ok){
 throw new Error("API response not OK");
 }
@@ -122,11 +121,35 @@ nextBtn.disabled = false;
 
 nextBtn.disabled = true;
 
-status.innerText =
-"✅ You completed all 5 questions. Scroll down to receive them all via email.";
+status.innerHTML = `
+<div style="
+margin-top:20px;
+padding:20px;
+font-size:20px;
+font-weight:600;
+background:#fff8dc;
+border:3px solid #f5c518;
+border-radius:10px;
+text-align:center;
+">
+🎉 <strong>Quiz Complete!</strong><br>
+⬇️ Scroll down to <strong>enter your email</strong> and receive all questions.<br>
+📩 We'll send them instantly.
+</div>
+`;
 
 quizStarted = false;
 generateBtn.disabled = false;
+
+/* auto scroll to email */
+
+const emailField = document.getElementById("downloadEmail");
+
+if(emailField){
+emailField.scrollIntoView({
+behavior:"smooth"
+});
+}
 
 }
 
@@ -180,6 +203,12 @@ answerText.innerText = "Answer: " + q.answer;
 
 answerText.classList.add("hidden");
 
+/* disable prev button if needed */
+
+if(prevBtn){
+prevBtn.disabled = questionsSeen <= 1;
+}
+
 }
 
 /* -------------------------
@@ -203,8 +232,6 @@ BUTTON EVENTS
 if(generateBtn){
 
 generateBtn.addEventListener("click",()=>{
-
-/* block topic switching mid quiz */
 
 if(quizStarted && questionsSeen < MAX_QUESTIONS){
 
@@ -242,6 +269,39 @@ nextBtn.addEventListener("click",()=>{
 if(loading) return;
 
 getQuestion();
+
+});
+
+}
+
+/* -------------------------
+PREVIOUS QUESTION
+------------------------- */
+
+if(prevBtn){
+
+prevBtn.addEventListener("click",()=>{
+
+const history = JSON.parse(localStorage.getItem("quiz_history")) || [];
+
+if(history.length <= 1){
+alert("No previous question.");
+return;
+}
+
+/* remove current */
+
+history.pop();
+
+localStorage.setItem("quiz_history",JSON.stringify(history));
+
+const prev = history[history.length - 1];
+
+seenIds.pop();
+
+questionsSeen--;
+
+renderQuestion(prev);
 
 });
 
@@ -294,6 +354,7 @@ container.appendChild(div);
 /* -------------------------
 DOWNLOAD QUESTIONS
 ------------------------- */
+
 const downloadAllBtn = document.getElementById("downloadAllBtn");
 
 if(downloadAllBtn){
