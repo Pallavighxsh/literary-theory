@@ -532,6 +532,18 @@ color:#001f3f;
 
 }
 
+.quiz-nav{
+  display:flex;
+  justify-content:center;
+  gap:20px;            /* space between buttons */
+  margin-top:20px;
+}
+
+.nav-btn{
+  border:1px solid #444;
+  padding:10px 18px;
+}
+
 
 
 /* =====================================================
