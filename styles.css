@@ -405,6 +405,24 @@ text-align:center;
 margin-top:15px;
 }
 
+.email-prompt{
+margin-top:20px;
+padding:20px;
+font-size:20px;
+font-weight:600;
+background:#fff8dc;
+border:3px solid #f5c518;
+border-radius:10px;
+text-align:center;
+animation:pulse 1.5s infinite;
+}
+
+@keyframes pulse{
+0%{transform:scale(1);}
+50%{transform:scale(1.03);}
+100%{transform:scale(1);}
+}
+
 /* =====================================================
 LOADING BOX
 ===================================================== */
