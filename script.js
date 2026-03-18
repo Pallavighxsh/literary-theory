@@ -151,7 +151,7 @@ nextBtn.disabled = false;
 console.error("Question generation error:",err);
 
 status.innerText =
-"⚠️ Question generation failed. Please try again.";
+"⚠️ The LLM could not understand this Literary Theory topic. Please rephrase the topic.";
 
 generateBtn.disabled = false;
 nextBtn.disabled = false;
