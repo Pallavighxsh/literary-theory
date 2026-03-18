@@ -11,6 +11,9 @@ const MAX_QUESTIONS = 5;
 
 let loading = false;
 
+/* ⭐ ADD THIS */
+let resetFlag = false;
+
 /* ELEMENTS */
 
 const generateBtn = document.getElementById("generateBtn");
@@ -66,10 +69,15 @@ headers:{
 
 body:JSON.stringify({
 topic:topic,
-seen:seenIds
+seen:seenIds,
+/* ⭐ ADD THIS */
+reset: resetFlag
 })
 
 });
+
+/* ⭐ RESET FLAG AFTER USE */
+resetFlag = false;
 
 if(!res.ok){
 throw new Error("API response not OK");
@@ -231,6 +239,9 @@ seenIds = [];
 questionsSeen = 0;
 currentIndex = -1;
 quizStarted = false;
+
+/* ⭐ TRIGGER BACKEND RESET */
+resetFlag = true;
 
 localStorage.removeItem("quiz_history");
 
