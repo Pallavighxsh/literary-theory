@@ -46,7 +46,7 @@ const KNOWN_TOPICS = [
 ];
 
 /* --------------------------------
-SCRAPE SOURCES
+SCRAPE SOURCES (BRITANNICA REMOVED)
 -------------------------------- */
 
 const CONTEXT_SOURCES = [
@@ -62,18 +62,6 @@ name:"iep",
 base:"https://iep.utm.edu",
 linkSelector:"a[href^='https://iep.utm.edu/']"
 },
-
-{
-name:"britannica",
-base:"https://www.britannica.com",
-linkSelector:"a[href^='/topic/']"
-},
-
-{
-name:"wikipedia",
-base:"https://en.wikipedia.org/wiki/Philosophy",
-linkSelector:"a[href^='/wiki/']"
-}
 
 ];
 
@@ -116,7 +104,7 @@ FETCH RANDOM ARTICLE CONTEXT
 
 async function fetchContext(){
 
-  for(let attempt=0; attempt<6; attempt++){
+  for(let attempt=0; attempt<8; attempt++){
 
     try{
 
@@ -151,9 +139,9 @@ async function fetchContext(){
 
       if(!links.length) continue;
 
-      /* try multiple articles if needed */
+      /* try multiple articles until text-heavy one found */
 
-      for(let i=0;i<5;i++){
+      for(let i=0;i<8;i++){
 
         const randomLink =
           links[Math.floor(Math.random()*links.length)];
@@ -167,23 +155,32 @@ async function fetchContext(){
 
           const $$ = cheerio.load(page.data);
 
-          let text="";
+          const paragraphs = [];
 
           $$("p").each((i,el)=>{
 
-            if(i<10){
-              text += $$(el).text()+" ";
+            const txt = $$(el).text().trim();
+
+            if(txt.length > 120){ // ignore tiny paras
+              paragraphs.push(txt);
             }
 
           });
 
-          const wordCount = text.split(/\s+/).length;
+          if(paragraphs.length < 5) continue;
 
-          if(wordCount > 400){
+          /* pick random paragraph */
+
+          const randomPara =
+            paragraphs[Math.floor(Math.random()*paragraphs.length)];
+
+          const wordCount = randomPara.split(/\s+/).length;
+
+          if(wordCount > 80){
 
             console.log("Context found:",source.name,wordCount);
 
-            return text.slice(0,2000);
+            return randomPara.slice(0,1500);
 
           }
 
