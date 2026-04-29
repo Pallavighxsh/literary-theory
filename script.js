@@ -360,15 +360,74 @@ DOWNLOAD QUESTIONS
 
 const downloadAllBtn = document.getElementById("downloadAllBtn");
 
-if(downloadAllBtn){
+if (downloadAllBtn) {
 
-downloadAllBtn.addEventListener("click", async ()=>{
+  downloadAllBtn.addEventListener("click", async () => {
 
-const history = JSON.parse(localStorage.getItem("quiz_history")) || [];
+    // prevent multiple clicks
+    if (downloadAllBtn.disabled) return;
+    downloadAllBtn.disabled = true;
 
-if(history.length < MAX_QUESTIONS){
-alert("You must complete all 5 questions before downloading.");
-return;
+    const history = JSON.parse(localStorage.getItem("quiz_history")) || [];
+
+    if (history.length < MAX_QUESTIONS) {
+      alert("You must complete all 5 questions before downloading.");
+      downloadAllBtn.disabled = false;
+      return;
+    }
+
+    const emailInput = document.getElementById("downloadEmail");
+    const email = emailInput.value.trim();
+
+    if (!email || !email.includes("@")) {
+      alert("Please enter a valid email.");
+      downloadAllBtn.disabled = false;
+      return;
+    }
+
+    console.log("Sending email request:", {
+      email,
+      questions: history.slice(-MAX_QUESTIONS)
+    });
+
+    try {
+
+      const res = await fetch("/api/capture-download", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: email,
+          questions: history.slice(-MAX_QUESTIONS)
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Backend error:", data);
+        alert("Email failed: " + (data?.details || "Unknown error"));
+        downloadAllBtn.disabled = false;
+        return;
+      }
+
+      alert("📧 Questions have been sent to your email.");
+
+    } catch (err) {
+
+      console.error("Email send error:", err);
+      alert("Email failed to send");
+
+    }
+
+    // optional cooldown before re-enabling
+    setTimeout(() => {
+      downloadAllBtn.disabled = false;
+    }, 5000);
+
+  });
+
 }
 
 const emailInput = document.getElementById("downloadEmail");
