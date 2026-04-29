@@ -11,7 +11,6 @@ const MAX_QUESTIONS = 5;
 
 let loading = false;
 
-/* ⭐ ADD THIS */
 let resetFlag = false;
 
 /* ELEMENTS */
@@ -70,13 +69,11 @@ headers:{
 body:JSON.stringify({
 topic:topic,
 seen:seenIds,
-/* ⭐ ADD THIS */
 reset: resetFlag
 })
 
 });
 
-/* ⭐ RESET FLAG AFTER USE */
 resetFlag = false;
 
 if(!res.ok){
@@ -129,12 +126,8 @@ quizStarted = false;
 nextBtn.disabled = true;
 generateBtn.disabled = false;
 
-/* keep original status message */
-
 status.innerText =
 "✅ You completed all 5 questions. Scroll down to receive them all via email.";
-
-/* popup */
 
 alert(
 "🎉 Quiz Complete!\n\nScroll down and enter your email to receive all 5 questions."
@@ -240,7 +233,6 @@ questionsSeen = 0;
 currentIndex = -1;
 quizStarted = false;
 
-/* ⭐ TRIGGER BACKEND RESET */
 resetFlag = true;
 
 localStorage.removeItem("quiz_history");
@@ -364,7 +356,6 @@ if (downloadAllBtn) {
 
   downloadAllBtn.addEventListener("click", async () => {
 
-    // prevent multiple clicks
     if (downloadAllBtn.disabled) return;
     downloadAllBtn.disabled = true;
 
@@ -421,61 +412,11 @@ if (downloadAllBtn) {
 
     }
 
-    // optional cooldown before re-enabling
     setTimeout(() => {
       downloadAllBtn.disabled = false;
     }, 5000);
 
   });
-
-}
-
-const emailInput = document.getElementById("downloadEmail");
-
-const email = emailInput.value.trim();
-
-if(!email){
-alert("Please enter your email address.");
-return;
-}
-
-if(!email.includes("@")){
-alert("Please enter a valid email.");
-return;
-}
-
-try{
-
-const res = await fetch("/api/capture-download",{
-
-method:"POST",
-
-headers:{
-"Content-Type":"application/json"
-},
-
-body:JSON.stringify({
-email:email,
-questions:history.slice(-MAX_QUESTIONS)
-})
-
-});
-
-if(!res.ok){
-alert("Email sending failed. Please try again.");
-return;
-}
-
-alert("📧 Questions have been sent to your email.");
-
-}catch(err){
-
-console.error("Email send error:",err);
-alert("Email failed to send");
-
-}
-
-});
 
 }
 
