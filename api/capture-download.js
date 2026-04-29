@@ -1,129 +1,112 @@
 import nodemailer from "nodemailer";
-import { kv } from "@vercel/kv";
-
-/* --------------------------------
-EMAIL STORE (simple dictionary)
--------------------------------- */
-
-const emailStore = {};
 
 /* --------------------------------
 MAIL TRANSPORT
 -------------------------------- */
 
 const transporter = nodemailer.createTransport({
-service: "gmail",
-auth: {
-user: process.env.EMAIL_USER,
-pass: process.env.EMAIL_PASS
-}
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 /* --------------------------------
 FORMAT QUESTIONS
 -------------------------------- */
 
-function formatQuestions(questions){
+function formatQuestions(questions) {
+  let text = "Your Literary Theory Quiz Questions\n\n";
 
-let text = "Your Literary Theory Quiz Questions\n\n";
+  questions.forEach((q, i) => {
+    text += `${i + 1}. ${q.question}\n`;
 
-questions.forEach((q,i)=>{
+    Object.entries(q.options).forEach(([k, v]) => {
+      text += `${k}. ${v}\n`;
+    });
 
-text += `${i+1}. ${q.question}\n`;
+    text += `Answer: ${q.answer}\n\n`;
+  });
 
-Object.entries(q.options).forEach(([k,v])=>{
-text += `${k}. ${v}\n`;
-});
-
-text += `Answer: ${q.answer}\n\n`;
-
-});
-
-return text;
-
+  return text;
 }
 
 /* --------------------------------
 API HANDLER
 -------------------------------- */
 
-export default async function handler(req,res){
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-if(req.method !== "POST"){
-return res.status(405).json({error:"Method not allowed"});
-}
+  try {
+    const { email, questions } = req.body;
 
-try{
+    if (!email) {
+      return res.status(400).json({ error: "Email required" });
+    }
 
-const {email,questions} = req.body;
+    /* verify transporter (helps debug) */
+    await transporter.verify();
+    console.log("SMTP ready");
 
-if(!email){
-return res.status(400).json({error:"Email required"});
-}
-
-/* store email if new */
-
-const exists = await kv.sismember("quiz_emails", email);
-
-if(!exists){
-await kv.sadd("quiz_emails", email);
-console.log("New email captured:",email);
-}else{
-console.log("Existing email:",email);
-}
-
-/* keep temporary runtime store (unchanged logic) */
-
-if(!emailStore[email]){
-emailStore[email] = true;
-}
-
-/* format questions */
-
-const message = `
+    /* format message */
+    const message = `
 Dear Literary Scholar,
 
 Thank you for using the Literary Theory Quiz Generator.
 
-Explore the ideas behind the quiz in the book *74 Topics in Literary Theory*, available here:
+Explore the ideas behind the quiz in the book *74 Topics in Literary Theory*:
 https://phindia.com/Books/BookDetail/9788120352850/74-Topics-in-Literary-Theory
-
-The book offers concise introductions to major concepts and thinkers in literary theory. Institutions adopting the book through bulk purchase can enable direct student access to the quiz generator without requiring email entry for every download.
 
 --------------------------------------------------
 
 ${formatQuestions(questions)}
+
 --------------------------------------------------
 
-Please do not hesitate to reply to this email if you have any questions.
-
 Best wishes,  
-
 Pallavi Ghosh  
-Brand Strategist  
 PHI Learning
-pallavighosh@phindia.com
 `;
 
-/* send email */
+    /* send email to user */
+    await transporter.sendMail({
+      from: `"Literary Theory Quiz" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Your Literary Theory Quiz Questions",
+      text: message,
+    });
 
-await transporter.sendMail({
+    console.log("User email sent:", email);
 
-from: `"Literary Theory Quiz" <${process.env.EMAIL_USER}>`,
-to: email,
-subject: "Your Literary Theory Quiz Questions",
-text: message
+    /* send notification to you */
+    await transporter.sendMail({
+      from: `"Quiz Alert" <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_USER, // sends to yourself
+      subject: "New Quiz Sent",
+      text: `
+A quiz email was sent.
 
-});
+User: ${email}
+Questions: ${questions?.length || 0}
+Time: ${new Date().toISOString()}
+      `,
+    });
 
-return res.status(200).json({success:true});
+    console.log("Admin notification sent");
 
-}catch(err){
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("FULL ERROR:", err);
 
-console.error("Email send error:",err);
-
-return res.status(500).json({error:"Email failed"});
-
-}
-
+    return res.status(500).json({
+      error: "Email failed",
+      details: err.message, // 👈 important for debugging
+    });
+  }
 }
